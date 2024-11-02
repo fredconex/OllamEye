@@ -7,6 +7,7 @@ A minimalist client solution for Ollama written in python with ability to captur
 - Markdown with code blocks capability
 - Easy tagging for models that are vision enabled
 - 3 display modes (Collapsed, Minimal and Expanded)
+- @ on start of prompt to easily choose the model
 
 
 To-Do:
