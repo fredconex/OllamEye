@@ -3,12 +3,20 @@
 # PixelLlama!
 
 A minimalist client solution for Ollama with ability to capture screen to use with vision models.
-- Markdown capability
 - Screenshot capturing
+- Markdown with code blocks capability
 - Easy tagging for models that are vision enabled
+- 3 display modes (Collapsed, Minimal and Expanded)
 
 
 To-Do:
 - Context persistency between sessions
 - Refactor and removal of unecessary or redundant code
 - DragNDrop images to prompt
+
+# Installation
+git clone https://github.com/fredconex/PixelLlama.git
+cd ./PixelLlama
+./run.bat
+
+Execution of run.bat will create a new environment, install the required packages automatically and launch PixelLlama.
