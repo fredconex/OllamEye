@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Add this line at the very top of your script imports -->
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/12.3.2/markdown-it.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/a11y-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <title>Chat Application</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #1E1E1E;
+            color: #D4D4D4;
+            font-family: Arial, sans-serif;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+        #chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        #initial-message-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+        #initial-message {
+            font-size: 24px;
+            color: #7289DA;
+            text-align: center;
+        }
+        .message { 
+            margin-bottom: 5px; 
+            text-align: left;
+            background-color: #333;
+            padding: 5px;
+            border-radius: 5px;
+            position: relative;
+        }
+        .message.you { 
+            border-bottom: 2px solid #7289DA;
+        }
+        /* Update this selector to match any message not from 'you' */
+        .message:not(.you) {
+            border-top: 2px solid #53629b;
+            background-color: #222;
+        }
+        .sender { 
+            font-weight: bold; 
+            margin-right: 4px;
+        }
+        .message .content { 
+            display: inline;
+            color: #D4D4D4 !important; /* Ensure content text is light-colored */
+        }
+        pre {
+            position: relative;
+            padding: 10px;
+            border-radius: 5px;
+            background: #121212;
+            color: #9f9f9f;
+            margin-left: 0;
+            margin-right: 0;
+            overflow: auto;
+            border-left: 4px solid #3d3d3d;
+        }
+        code {
+            font-family: 'Fira Code', 'Courier New', Courier, monospace;
+            color: #9f9f9f;
+            font-size: 14px;
+        }
+        .hljs {
+            background: #121212; /* Match your existing background */
+            color: #9f9f9f; /* Match your existing text color */
+        }
+        .copy-button {
+            background-color: #353535;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            padding: 5px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+            position: absolute;
+            top: 4px;
+            right: 4px;
+        }
+        .copy-button:hover {
+            opacity: 1;
+        }
+        /* Modern scrollbar styles */
+        ::-webkit-scrollbar {
+            width: 12px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #2E3338;
+            border-radius: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4A4D52;
+            border-radius: 6px;
+            border: 3px solid #2E3338;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #5A5D62;
+        }
+        .app-header {
+            display: none; /* Hide the app header */
+        }
+        .app-icon {
+            width: 256px; /* Make the icon bigger */
+            height: 512px;
+        }
+        #welcome-message {
+            text-align: center;
+            color: #888;
+            font-style: italic;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+        
+        /* Add these new styles */
+        .message-actions {
+            display: none;  /* Hide by default */
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            gap: 4px;
+        }
+        
+        .message:hover .message-actions {
+            display: flex;  /* Show on message hover */
+        }
+        
+        .action-button {
+            background-color: #2f3136;
+            border: none;
+            border-radius: 4px;
+            width: 24px;
+            height: 24px;
+            color: #b9bbbe;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+            opacity: 0.7;
+        }
+        
+        .action-button:hover {
+            background-color: #393c43;
+            color: #fff;
+            opacity: 1;
+        }
+        
+        .action-button .material-icons {
+            font-size: 16px;
+        }
+    </style>
+    <script>
+        const md = window.markdownit({
+            highlight: function (str, lang) {
+                if (lang && hljs.getLanguage(lang.trim())) {
+                    try {
+                        return hljs.highlight(str, { language: lang.trim() }).value;
+                    } catch (__) {}
+                }
+                return hljs.highlightAuto(str).value; // use auto highlighting if language is not specified
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', (event) => {
+            hljs.highlightAll();
+        });
+
+        // Add this function to check for bridge availability
+        function waitForBridge(callback, maxAttempts = 10) {
+            let attempts = 0;
+            const checkBridge = () => {
+                attempts++;
+                if (window.qt_bridge) {
+                    callback();
+                } else if (attempts < maxAttempts) {
+                    setTimeout(checkBridge, 100);
+                } else {
+                    console.error('Bridge not available after maximum attempts');
+                }
+            };
+            checkBridge();
+        }
+
+        function updateChatContent(chatContent) {
+            const chatMessages = document.getElementById('chat-messages');
+            const welcomeMessage = document.getElementById('welcome-message');
+            
+            if (chatContent.length > 0) {
+                welcomeMessage.style.display = 'none';
+                chatMessages.innerHTML = '';
+                
+                chatContent.forEach((message, index) => {
+                    const messageElement = document.createElement('div');
+                    messageElement.className = `message ${message.sender.toLowerCase()}`;
+                    
+                    // Update sender span to show model name or "User"
+                    const senderSpan = document.createElement('span');
+                    senderSpan.className = 'sender';
+                    senderSpan.textContent = message.sender.toLowerCase() === 'you' ? '' : `${message.sender}`;
+                    senderSpan.style.color = '#43B581';
+                    messageElement.appendChild(senderSpan);
+
+                    if (message.thumbnail) {
+                        messageElement.innerHTML += message.thumbnail;
+                    }
+
+                    const contentSpan = document.createElement('span');
+                    contentSpan.className = 'content';
+                    contentSpan.innerHTML = marked.parse(message.content);
+                    contentSpan.style.color = '#D4D4D4';
+                    messageElement.appendChild(contentSpan);
+
+                    // Add action buttons
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'message-actions';
+
+                    // Copy button for all messages
+                    const copyButton = document.createElement('button');
+                    copyButton.className = 'action-button';
+                    copyButton.innerHTML = '<span class="material-icons">content_copy</span>';
+                    copyButton.title = 'Copy message';
+                    copyButton.onclick = () => copyMessage(message.content);
+                    actionsDiv.appendChild(copyButton);
+
+                    // Add edit button for user messages
+                    if (message.sender.toLowerCase() === 'you') {
+                        const editButton = document.createElement('button');
+                        editButton.className = 'action-button';
+                        editButton.innerHTML = '<span class="material-icons">edit</span>';
+                        editButton.title = 'Edit message';
+                        editButton.onclick = () => {
+                            if (window.qt_bridge) {
+                                window.qt_bridge.editMessage(index);
+                            }
+                        };
+                        actionsDiv.appendChild(editButton);
+                    }
+
+                    // Regenerate button only for the last assistant message
+                    if (message.sender.toLowerCase() !== 'you' && index === chatContent.length - 1) {
+                        const regenerateButton = document.createElement('button');
+                        regenerateButton.className = 'action-button';
+                        regenerateButton.innerHTML = '<span class="material-icons">refresh</span>';
+                        regenerateButton.title = 'Regenerate response';  // Add tooltip
+                        regenerateButton.onclick = () => {
+                            try {
+                                checkBridgeAndRegenerateMessage(index);
+                            } catch (e) {
+                                console.error('Failed to regenerate message:', e);
+                            }
+                        };
+                        actionsDiv.appendChild(regenerateButton);
+                    }
+
+                    messageElement.appendChild(actionsDiv);
+                    chatMessages.appendChild(messageElement);
+                });
+
+                // Add copy buttons to code blocks
+                document.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+
+                    const pre = block.parentNode;
+                    const copyButton = document.createElement('button');
+                    copyButton.className = 'copy-button';
+                    copyButton.innerHTML = '<span class="material-icons" style="font-size: 16px;">content_copy</span>';
+                    copyButton.addEventListener('click', () => {
+                        const code = block.textContent;
+                        copyTextToClipboard(code, copyButton);
+                    });
+
+                    // Extract language from the code block's class
+                    const classList = block.className.split(/\s+/);
+                    const langClass = classList.find(cls => cls.startsWith('language-'));
+                    if (langClass) {
+                        const lang = langClass.replace('language-', '').toUpperCase().trim();
+                        const codeTitle = document.createElement('div');
+                        codeTitle.className = 'code-title';
+                        codeTitle.textContent = lang;
+                        pre.insertBefore(codeTitle, block);
+
+                        const lineBreak = document.createElement('br');
+                        pre.insertBefore(lineBreak, block);
+                    }
+
+                    pre.appendChild(copyButton);
+                });
+            } else {
+                welcomeMessage.style.display = 'flex';
+                chatMessages.innerHTML = '';
+            }
+            
+            smoothScrollToBottom();
+        }
+
+        function copyTextToClipboard(text, button) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    button.innerHTML = '<span class="material-icons" style="font-size: 16px;">check</span>';
+                    setTimeout(() => {
+                        button.innerHTML = '<span class="material-icons" style="font-size: 16px;">content_copy</span>';
+                    }, 2000);
+                } else {
+                    throw new Error('Copy command was unsuccessful');
+                }
+            } catch (err) {
+                console.error('Fallback: Oops, unable to copy', err);
+                alert('Failed to copy code. Please try again or copy manually.');
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function smoothScrollToBottom() {
+            const chatContainer = document.getElementById('chat-container');
+            chatContainer.scrollTo({
+                top: chatContainer.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+        function copyMessage(text) {
+            // Use a more compatible way to copy text
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    console.log('Message copied to clipboard');
+                } else {
+                    throw new Error('Copy command was unsuccessful');
+                }
+            } catch (err) {
+                console.error('Failed to copy:', err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // Add this function to ensure qt_bridge is available
+        function checkBridgeAndRegenerateMessage(index) {
+            if (window.qt_bridge && typeof window.qt_bridge.regenerateMessage === 'function') {
+                window.qt_bridge.regenerateMessage(index);
+            } else {
+                console.error('Bridge not available');
+            }
+        }
+
+        // Add this new function
+        function updateProviderStatus(isOnline) {
+            const statusMessage = document.getElementById('status-message');
+            if (isOnline) {
+                statusMessage.textContent = 'Your visual assistant is ready to help. Start a conversation!';
+                statusMessage.style.color = '#888';  // Original color
+            } else {
+                statusMessage.textContent = 'Ollama is currently offline. Please start the Ollama service.';
+                statusMessage.style.color = '#ff4444';  // Red color for offline status
+            }
+        }
+
+    </script>
+</head>
+<body>
+    <div id="chat-container">
+        <div id="welcome-message">
+            <img src="data:image/png;base64,{{APP_ICON_BASE64}}" alt="App Icon" class="app-icon">
+            <p id="status-message">Checking connection status...</p>
+        </div>
+        <div id="chat-messages"></div>
+    </div>
+</body>
+</html>

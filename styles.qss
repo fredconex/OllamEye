@@ -1,0 +1,159 @@
+QWidget#mainWidget {
+    background-color: #1E1E1E;
+    border-radius: 20px;
+    border: 2px solid #7289DA;
+}
+
+QLabel {
+    color: #D4D4D4;
+    font-size: 14px;
+}
+
+QTextEdit {
+    background-color: #2D2D2D;
+    border: none;
+    padding: 10px;
+    font-size: 14px;
+    color: #D4D4D4;
+    border-radius: 5px;
+}
+
+QTextBrowser {
+    background-color: #1E1E1E;
+    border: none;
+    padding: 10px;
+    font-size: 14px;
+    color: #D4D4D4;
+    border-radius: 10px;
+}
+
+QPushButton {
+    background-color: #404040; 
+    color: #E0E0E0;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #505050;
+}
+
+QPushButton#verticalButton {
+    background-color: #1E1E1E;
+    margin-left: 2px;
+    border: 2px solid #2d2d2d;
+    border-top-left-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+}
+
+QPushButton#verticalButton:hover {
+    background-color: #1c1c1c;
+}
+
+QComboBox {
+    background-color: #2D2D2D;
+    color: #D4D4D4;
+    border: 1px solid #7289DA;
+    padding: 5px;
+    border-radius: 5px;
+    min-width: 200px;
+}
+
+QComboBox::drop-down {
+    border: none;
+}
+
+QComboBox::down-arrow {
+    image: url(down_arrow.png);
+    width: 12px;
+    height: 12px;
+}
+
+#cancelButton {
+    background-color: #4A4D52;
+}
+
+#cancelButton:hover {
+    background-color: #5A5D62;
+}
+
+QListWidget#modelList {
+    background-color: #2D2D2D;
+    border: 1px solid #7289DA;
+    border-radius: 5px;
+    color: #D4D4D4;
+    padding: 5px;
+    font-size: 14px;
+}
+
+QListWidget#modelList::item:selected {
+    background-color: #1d1d1d; 
+    color: white;
+}
+
+QScrollBar::handle:vertical {
+    background: #7289DA;
+    min-height: 20px;
+    border-radius: 5px;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QLabel#AppLabel {
+    color: #D4D4D4;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+QListWidget#suggestionList {
+    background-color: #2D2D2D;
+    border: 1px solid #7289DA;
+    border-radius: 5px;
+    color: #D4D4D4;
+    padding: 5px;
+}
+
+QListWidget#suggestionList::item {
+    padding: 5px;
+}
+
+QListWidget#suggestionList::item:selected {
+    background-color: #7289DA;
+    color: white;
+}
+
+QListWidget#suggestionList::item:hover {
+    background-color: #3D3D3D;
+}
+
+QTextEdit#inputField {
+                background-color: #2D2D2D;
+                border: none;
+                padding: 10px;
+                font-size: 14px;
+                color: #D4D4D4;
+                border-radius: 10px;
+            }
+
+
+#modelCameraButton {
+    background: transparent;
+    border: none;
+    padding: 2px;
+    border-radius: 4px;
+}
+
+#modelCameraButton:hover {
+    background: rgba(114, 137, 218, 0.1);
+}
+
+#modelCameraButton:pressed {
+    background: rgba(114, 137, 218, 0.2);
+}
