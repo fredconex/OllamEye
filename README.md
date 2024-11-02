@@ -2,5 +2,13 @@
 
 # PixelLlama!
 
+A minimalist client solution for Ollama with ability to capture screen to use with vision models.
+- Markdown capability
+- Screenshot capturing
+- Easy tagging for models that are vision enabled
 
-Coming soon... a minimalist client solution for Ollama with ability to capture screen to use with vision models.
+
+To-Do:
+- Context persistency between sessions
+- Refactor and removal of unecessary or redundant code
+- DragNDrop images to prompt
