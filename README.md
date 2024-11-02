@@ -15,8 +15,8 @@ To-Do:
 - DragNDrop images to prompt
 
 # Installation
-git clone https://github.com/fredconex/PixelLlama.git
-cd ./PixelLlama
-./run.bat
+git clone https://github.com/fredconex/PixelLlama.git  
+cd ./PixelLlama  
+./run.bat  
 
 Execution of run.bat will create a new environment, install the required packages automatically and launch PixelLlama.
