@@ -21,4 +21,5 @@ cd ./PixelLlama
 
 Execution of run.bat will create a new environment, install the required packages automatically and launch PixelLlama.
 
+# Donate
 <a href="https://www.paypal.com/donate/?hosted_button_id=24CJHH95X3AQS"><img width=256px src="https://raw.githubusercontent.com/stefan-niedermann/paypal-donate-button/master/paypal-donate-button.png" alt="Donate with PayPal" /></a>
