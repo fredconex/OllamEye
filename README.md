@@ -15,7 +15,7 @@ To-Do:
 - Refactor and removal of unecessary or redundant code
 - DragNDrop images to prompt
 
-# Installation
+# Installation (Windows)
 git clone https://github.com/fredconex/PixelLlama.git  
 cd ./PixelLlama  
 ./run.bat  
