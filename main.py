@@ -56,7 +56,7 @@ from PyQt6.QtGui import (
 )
 
 from datetime import datetime
-from utils.screenshot_utils import ScreenshotSelector
+from utils.screenshot_utils import ScreenshotSelector, process_image
 from utils.ollama_utils import (
     OllamaThread,
     load_ollama_models,
@@ -1096,7 +1096,11 @@ class OllamaChat(QWidget):
 
     def handle_screenshot(self, screenshot):
         print("Handling screenshot")  # Debug print
-        self.selected_screenshot = screenshot
+
+        # Process the screenshot to ensure it is within the desired size range
+        processed_screenshot = process_image(screenshot)
+
+        self.selected_screenshot = processed_screenshot
         self.show()  # Show the window first
         QTimer.singleShot(
             200, self._post_screenshot_actions
