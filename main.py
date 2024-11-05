@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QTextEdit,
-    QLineEdit, 
+    QLineEdit,
     QPushButton,
     QLabel,
     QSizeGrip,
@@ -48,7 +48,7 @@ from PyQt6.QtGui import (
     QDoubleValidator,
     QIntValidator,
     QKeyEvent,
-    QIcon,      
+    QIcon,
     QPainter,
     QPainterPath,
     QImage,
@@ -57,7 +57,14 @@ from PyQt6.QtGui import (
 
 from datetime import datetime
 from utils.screenshot_utils import ScreenshotSelector
-from utils.ollama_utils import OllamaThread, load_ollama_models, get_default_model, save_model_setting, get_system_prompt, get_ollama_url
+from utils.ollama_utils import (
+    OllamaThread,
+    load_ollama_models,
+    get_default_model,
+    save_model_setting,
+    get_system_prompt,
+    get_ollama_url,
+)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import QUrl
 from PyQt6.QtWebChannel import QWebChannel
@@ -81,7 +88,6 @@ class Bridge(QObject):
         self.chat_window.edit_message(index)
 
 
-
 class OllamaChat(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -94,11 +100,15 @@ class OllamaChat(QWidget):
 
         # Store original sizes
         self.original_compact_size = QSize(400, 800)  # Add this line
-        self.original_expanded_size = QSize(int(screen.width() * 0.5), int(screen.height() * 0.75))  # Add this line
-        
+        self.original_expanded_size = QSize(
+            int(screen.width() * 0.5), int(screen.height() * 0.75)
+        )  # Add this line
+
         # Current sizes can change when user resizes the window
         self.compact_size = QSize(400, 800)
-        self.expanded_size = QSize(int(screen.width() * 0.5), int(screen.height() * 0.75))
+        self.expanded_size = QSize(
+            int(screen.width() * 0.5), int(screen.height() * 0.75)
+        )
         self.message_history = []
         self.chat_content = []
         self.current_response = ""
@@ -118,15 +128,17 @@ class OllamaChat(QWidget):
         self.active_model = None  # Add this line to track the currently active model
         self.vision_capable_models = set()  # Store models with vision capability
         self.load_vision_capabilities()  # Load saved capabilities
-        
+
         # Create the input field before initUI
         self.input_field = QTextEdit()
         self.input_field.setPlaceholderText("Type your message...")
         self.input_field.setFixedHeight(50)
         self.input_field.setAcceptRichText(False)  # Only allow plain text
-        self.input_field.textChanged.connect(self.adjust_input_height)  # Add height adjustment
+        self.input_field.textChanged.connect(
+            self.adjust_input_height
+        )  # Add height adjustment
         self.input_field.installEventFilter(self)
-        
+
         self.initUI()  # Initialize UI components after input_field is created
         self.load_settings()
         self.add_vertical_button()
@@ -142,11 +154,15 @@ class OllamaChat(QWidget):
         self.temperature = None
         self.context_size = None
         self.suggestion_list = QListWidget(self)  # Add this line
-        self.suggestion_list.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.ToolTip)
+        self.suggestion_list.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint | Qt.WindowType.ToolTip
+        )
         self.suggestion_list.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.suggestion_list.hide()
         self.suggestion_list.itemClicked.connect(self.insert_suggestion)
-        self.input_field.textChanged.connect(lambda: self.update_suggestions())  # Use lambda to call without arguments
+        self.input_field.textChanged.connect(
+            lambda: self.update_suggestions()
+        )  # Use lambda to call without arguments
         self.current_response_model = None
 
         # Add provider status check timer
@@ -158,17 +174,17 @@ class OllamaChat(QWidget):
 
     def initUI(self):
         self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint | 
-            Qt.WindowType.WindowStaysOnTopHint |
-            Qt.WindowType.Tool  # Add this flag
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool  # Add this flag
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        
+
         # Load the stylesheet
-        style_path = os.path.join(os.path.dirname(__file__), 'styles.qss')
-        with open(style_path, 'r') as style_file:
+        style_path = os.path.join(os.path.dirname(__file__), "styles.qss")
+        with open(style_path, "r") as style_file:
             self.setStyleSheet(style_file.read())
-        
+
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -181,15 +197,17 @@ class OllamaChat(QWidget):
         # Add size grip for resizing at the top-left
         size_grip = QSizeGrip(self)
         size_grip.setFixedSize(20, 20)
-        size_grip.installEventFilter(self)  # Install event filter to catch double clicks
-        
+        size_grip.installEventFilter(
+            self
+        )  # Install event filter to catch double clicks
+
         # Create a container for the size grip
         grip_container = QWidget()
         grip_layout = QHBoxLayout(grip_container)
         grip_layout.setContentsMargins(0, 0, 0, 0)
         grip_layout.addWidget(size_grip)
         grip_layout.addStretch(1)
-        
+
         # Add the grip container to the top of the widget layout
         widget_layout.insertWidget(0, grip_container)
 
@@ -215,7 +233,6 @@ class OllamaChat(QWidget):
         self.settings_btn.clicked.connect(self.toggle_settings)
         header.addWidget(self.settings_btn)
 
-
         # Add close button
         self.close_btn = QPushButton()
         self.close_btn.setIcon(QIcon("icons/close.png"))
@@ -225,7 +242,7 @@ class OllamaChat(QWidget):
         self.close_btn.clicked.connect(self.handle_close_button_click)
         header.addWidget(self.close_btn)
 
-        widget_layout.addLayout(header)        
+        widget_layout.addLayout(header)
 
         # Updated toggle button creation
         toggle_layout = QHBoxLayout()
@@ -235,15 +252,15 @@ class OllamaChat(QWidget):
         self.toggle_btn.setIcon(QIcon.fromTheme("zoom-in"))
         self.toggle_btn.setObjectName("toggleButton")
         self.toggle_btn.clicked.connect(self.toggle_window_size)
-        
+
         # Add App label
         ollam_eye_label = QLabel("PixelLlama")
         ollam_eye_label.setObjectName("AppLabel")
-        
+
         toggle_layout.addWidget(self.toggle_btn)
         toggle_layout.addWidget(ollam_eye_label)
         toggle_layout.addStretch(1)  # This will push the button and label to the left
-        
+
         header.insertLayout(0, toggle_layout)
 
         # Create a stacked widget to hold both the chat and settings interfaces
@@ -260,8 +277,7 @@ class OllamaChat(QWidget):
         self.chat_display.setUrl(QUrl("about:blank"))
         # Update size policy to expand in both directions
         self.chat_display.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Expanding
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
         chat_layout.addWidget(self.chat_display, 1)
 
@@ -282,7 +298,9 @@ class OllamaChat(QWidget):
 
         # Add the input field to layout
         self.input_layout.addWidget(self.screenshot_btn)
-        self.input_layout.addWidget(self.input_field, 1)  # Give the input field more space
+        self.input_layout.addWidget(
+            self.input_field, 1
+        )  # Give the input field more space
 
         self.send_btn = QPushButton()
         self.send_btn.setFixedSize(30, 30)
@@ -304,40 +322,48 @@ class OllamaChat(QWidget):
         # Create and add the settings interface
         self.settings_interface = QWidget()
         settings_layout = QVBoxLayout(self.settings_interface)
-        
+
         # Add a scroll area for settings
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_content = QWidget()
         scroll_layout = QVBoxLayout(scroll_content)
-        
+
         settings_title = QLabel("Settings")
         settings_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         scroll_layout.addWidget(settings_title)
-        
+
         self.model_label = QLabel("Select Ollama Model:")
         scroll_layout.addWidget(self.model_label)
-        
+
         # Add search bar for models
         self.model_search = QLineEdit()
         self.model_search.setPlaceholderText("Search models...")
         self.model_search.textChanged.connect(self.filter_models)
         scroll_layout.addWidget(self.model_search)
-        
+
         # Apply the same style to model_list
         self.model_list = QListWidget()
-        self.model_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.model_list.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         self.model_list.setObjectName("modelList")
-        self.model_list.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.ToolTip)
-        self.model_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.model_list.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint | Qt.WindowType.ToolTip
+        )
+        self.model_list.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
 
         self.load_models()
-        scroll_layout.addWidget(self.model_list, 1)  # Give it a stretch factor to expand
+        scroll_layout.addWidget(
+            self.model_list, 1
+        )  # Give it a stretch factor to expand
 
         # Add temperature setting
         self.temperature_label = QLabel("Temperature:")
         scroll_layout.addWidget(self.temperature_label)
-        
+
         self.temperature_input = QLineEdit()
         self.temperature_input.setPlaceholderText("default")
         # Add a validator for temperature (float between 0.0 and 1.0)
@@ -348,7 +374,7 @@ class OllamaChat(QWidget):
         # Add context size setting
         self.context_size_label = QLabel("Context Size:")
         scroll_layout.addWidget(self.context_size_label)
-        
+
         self.context_size_input = QLineEdit()
         self.context_size_input.setPlaceholderText("default")
         # Add a validator for context size (integer between 0 and 65536)
@@ -359,14 +385,16 @@ class OllamaChat(QWidget):
         # Add system prompt setting
         self.system_prompt_label = QLabel("System Prompt:")
         scroll_layout.addWidget(self.system_prompt_label)
-        
+
         self.system_prompt_input = QTextEdit()
         self.system_prompt_input.setPlaceholderText("Enter system prompt here...")
-        self.system_prompt_input.setFixedHeight(100)  # Set a fixed height for better visibility
+        self.system_prompt_input.setFixedHeight(
+            100
+        )  # Set a fixed height for better visibility
         scroll_layout.addWidget(self.system_prompt_input)
 
         scroll_layout.addStretch(1)
-        
+
         scroll_content.setLayout(scroll_layout)
         scroll_area.setWidget(scroll_content)
         settings_layout.addWidget(scroll_area)
@@ -376,18 +404,20 @@ class OllamaChat(QWidget):
         self.apply_button = QPushButton("Apply")
         self.apply_button.clicked.connect(self.apply_settings)
         button_layout.addWidget(self.apply_button)
-        
+
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.setObjectName("cancelButton")
         self.cancel_button.clicked.connect(self.cancel_settings)
         button_layout.addWidget(self.cancel_button)
-        
+
         settings_layout.addLayout(button_layout)
 
         self.stacked_widget.addWidget(self.settings_interface)
 
         # Set size policy for main_widget
-        main_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        main_widget.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
 
         # Set layout for self
         self.setLayout(main_layout)
@@ -408,9 +438,13 @@ class OllamaChat(QWidget):
     def update_screenshot_button_visibility(self):
         """Update the visibility of the screenshot button based on the current model's capabilities."""
         if self.active_model:
-            self.screenshot_btn.setVisible(self.active_model in self.vision_capable_models)
+            self.screenshot_btn.setVisible(
+                self.active_model in self.vision_capable_models
+            )
         else:
-            self.screenshot_btn.setVisible(self.default_model in self.vision_capable_models)
+            self.screenshot_btn.setVisible(
+                self.default_model in self.vision_capable_models
+            )
 
     def onLoadFinished(self, ok):
         if ok:
@@ -441,17 +475,17 @@ class OllamaChat(QWidget):
         try:
             self.model_names = sorted(load_ollama_models())
             self.model_list.clear()
-            
+
             # Create items with fixed button positions
             for model_name in self.model_names:
                 item = QListWidgetItem(self.model_list)
-                
-               # Create a widget to hold the model name and icons
+
+                # Create a widget to hold the model name and icons
                 widget = QWidget()
                 layout = QHBoxLayout(widget)
                 layout.setContentsMargins(5, 2, 5, 2)
                 layout.setSpacing(0)  # Remove spacing between elements
-                
+
                 # Create a fixed-width container for buttons
                 button_container = QWidget()
                 button_container.setFixedWidth(60)  # Adjust width based on your buttons
@@ -459,18 +493,24 @@ class OllamaChat(QWidget):
                 button_layout = QHBoxLayout(button_container)
                 button_layout.setContentsMargins(0, 0, 0, 0)
                 button_layout.setSpacing(2)
-                button_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)  # Align buttons to the left
-                
+                button_layout.setAlignment(
+                    Qt.AlignmentFlag.AlignLeft
+                )  # Align buttons to the left
+
                 # Add button container first
                 layout.addWidget(button_container, 0, Qt.AlignmentFlag.AlignLeft)
-                
+
                 # Add model name label with elision
                 label = QLabel(model_name)
-                label.setStyleSheet("text-align: left; padding-left: 5px;")  # Add left padding
+                label.setStyleSheet(
+                    "text-align: left; padding-left: 5px;"
+                )  # Add left padding
                 label.setMinimumWidth(50)  # Ensure minimum text visibility
                 label.setMaximumWidth(300)  # Limit maximum width
-                layout.addWidget(label, 1, Qt.AlignmentFlag.AlignLeft)  # Use stretch factor 1 to fill remaining space
-              
+                layout.addWidget(
+                    label, 1, Qt.AlignmentFlag.AlignLeft
+                )  # Use stretch factor 1 to fill remaining space
+
                 # Add default model button
                 default_btn = QPushButton()
                 default_btn.setFixedSize(24, 24)
@@ -478,41 +518,51 @@ class OllamaChat(QWidget):
                 default_btn.setProperty("model_name", model_name)
                 default_btn.setProperty("is_default", model_name == self.default_model)
                 default_btn.setIcon(QIcon("icons/default.png"))
-                default_btn.clicked.connect(lambda checked, m=model_name, b=default_btn: 
-                                        self.handle_default_model_click(m, b))
+                default_btn.clicked.connect(
+                    lambda checked, m=model_name, b=default_btn: self.handle_default_model_click(
+                        m, b
+                    )
+                )
                 button_layout.addWidget(default_btn)
-                
+
                 # Add camera icon
                 camera_btn = QPushButton()
                 camera_btn.setFixedSize(24, 24)
                 camera_btn.setObjectName("modelCameraButton")
                 camera_btn.setProperty("model_name", model_name)
-                camera_btn.setProperty("enabled_state", model_name in self.vision_capable_models)
+                camera_btn.setProperty(
+                    "enabled_state", model_name in self.vision_capable_models
+                )
                 self.update_camera_button_style(camera_btn)
-                camera_btn.clicked.connect(lambda checked, m=model_name, b=camera_btn: 
-                                        self.handle_model_camera_click(m, b))
+                camera_btn.clicked.connect(
+                    lambda checked, m=model_name, b=camera_btn: self.handle_model_camera_click(
+                        m, b
+                    )
+                )
                 button_layout.addWidget(camera_btn)
-                
-               
+
                 # Set the custom widget as the item's widget
                 item.setSizeHint(widget.sizeHint())
                 self.model_list.setItemWidget(item, widget)
-                
+
                 # Update default button style
                 self.update_default_button_style(default_btn)
-        
+
         except requests.exceptions.ConnectionError:
-            self.show_error_message("Connection Error", "Unable to connect to the Ollama server. Please make sure Ollama is running and try again.")
+            self.show_error_message(
+                "Connection Error",
+                "Unable to connect to the Ollama server. Please make sure Ollama is running and try again.",
+            )
         except Exception as e:
-            self.show_error_message("Error", f"An error occurred while loading models: {str(e)}")
-           
-    
+            self.show_error_message(
+                "Error", f"An error occurred while loading models: {str(e)}"
+            )
 
     def handle_model_selection(self, item):
         """Handle double-click to select a model."""
         if item:
             print(f"Selected model: {self.selected_model}")
-    
+
     def update_camera_button_style(self, button):
         """Update the camera button style based on its enabled state."""
         is_enabled = button.property("enabled_state")
@@ -525,17 +575,17 @@ class OllamaChat(QWidget):
         """Toggle vision capability for a model."""
         current_state = button.property("enabled_state")
         new_state = not current_state
-        
+
         # Update the set of vision-capable models
         if new_state:
             self.vision_capable_models.add(model_name)
         else:
             self.vision_capable_models.discard(model_name)
-        
+
         # Update button state and style
         button.setProperty("enabled_state", new_state)
         self.update_camera_button_style(button)
-        
+
         # Save the updated capabilities
         self.save_vision_capabilities()
 
@@ -557,7 +607,7 @@ class OllamaChat(QWidget):
             return label.text()
 
         return None
-    
+
     def apply_settings(self):
         # Save temperature and context size settings
         temperature = self.temperature_input.text()
@@ -584,11 +634,13 @@ class OllamaChat(QWidget):
 
         # Save settings to config.json
         config = {
-            "default_model": self.selected_model if self.selected_model else self.default_model,
+            "default_model": (
+                self.selected_model if self.selected_model else self.default_model
+            ),
             "temperature": self.temperature,
             "context_size": self.context_size,
             "system_prompt": self.system_prompt,
-            "vision_capable_models": list(self.vision_capable_models)  # Add this line
+            "vision_capable_models": list(self.vision_capable_models),  # Add this line
         }
         with open("config.json", "w") as file:
             json.dump(config, file, indent=4)
@@ -605,19 +657,25 @@ class OllamaChat(QWidget):
             self.stacked_widget.setCurrentWidget(self.settings_interface)
             self.settings_btn.setIcon(QIcon.fromTheme("go-previous"))
             self.is_settings_visible = True
-            
+
             # Reload the model list
             self.model_list.clear()
             self.load_models()
-            
+
             # Select the current model in the list
-            items = self.model_list.findItems(self.default_model, Qt.MatchFlag.MatchExactly)
+            items = self.model_list.findItems(
+                self.default_model, Qt.MatchFlag.MatchExactly
+            )
             if items:
                 self.model_list.setCurrentItem(items[0])
-            
+
             # Update temperature and context size inputs
-            self.temperature_input.setText(str(self.temperature) if self.temperature is not None else "")
-            self.context_size_input.setText(str(self.context_size) if self.context_size is not None else "")
+            self.temperature_input.setText(
+                str(self.temperature) if self.temperature is not None else ""
+            )
+            self.context_size_input.setText(
+                str(self.context_size) if self.context_size is not None else ""
+            )
 
     def cancel_settings(self):
         self.toggle_settings()
@@ -628,40 +686,43 @@ class OllamaChat(QWidget):
         else:
             self.send_message()
 
-
     def edit_message(self, index):
         """Start editing a message at the given index."""
         print(f"Starting edit for message at index {index}")  # Debug print
-        
+
         if index >= len(self.message_history):
-            print(f"Invalid index {index} for message history of length {len(self.message_history)}")
+            print(
+                f"Invalid index {index} for message history of length {len(self.message_history)}"
+            )
             return
-            
+
         message = self.message_history[index]
-        if message['role'] != 'user':
+        if message["role"] != "user":
             print(f"Cannot edit non-user message with role {message['role']}")
             return
-            
+
         # Set the edit index
         self.edit_index = index
-        
+
         # Set the message content in the input field
-        self.input_field.setPlainText(message['content'])
-        
+        self.input_field.setPlainText(message["content"])
+
         # Focus the input field
         self.input_field.setFocus()
-        
+
         # Select all text
         cursor = self.input_field.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)
         self.input_field.setTextCursor(cursor)
-        #self.input_field.selectAll()
-        
+        # self.input_field.selectAll()
+
         print(f"Edit mode activated for message: {message['content']}")  # Debug print
 
     def send_message(self):
         """Handle sending or editing a message."""
-        message = self.input_field.toPlainText().strip()  # Change from text() to toPlainText()
+        message = (
+            self.input_field.toPlainText().strip()
+        )  # Change from text() to toPlainText()
         # Remove the check for empty message
         if message.lower() == "/quit":
             self.close()
@@ -671,7 +732,9 @@ class OllamaChat(QWidget):
             return
 
         if self.edit_index is not None:
-            print(f"Submitting edit for message at index {self.edit_index}")  # Debug print
+            print(
+                f"Submitting edit for message at index {self.edit_index}"
+            )  # Debug print
             self.submit_edit(message)
         else:
             print("Adding new message")  # Debug print
@@ -680,17 +743,19 @@ class OllamaChat(QWidget):
         self.input_field.clear()
 
         # Return focus to input field and activate window
-        QTimer.singleShot(100, lambda: self.input_field.setFocus(Qt.FocusReason.OtherFocusReason))
+        QTimer.singleShot(
+            100, lambda: self.input_field.setFocus(Qt.FocusReason.OtherFocusReason)
+        )
         QTimer.singleShot(100, self.activateWindow)
-        
+
         # Print the entire message history
         print("\nMessage History:")
         for idx, msg in enumerate(self.message_history):
             print(f"{idx}. Role: {msg['role']}")
             print(f"   Content: {msg['content']}")
-            if 'model' in msg:
+            if "model" in msg:
                 print(f"   Model: {msg['model']}")
-            if 'thumbnail_html' in msg and msg['thumbnail_html']:
+            if "thumbnail_html" in msg and msg["thumbnail_html"]:
                 print(f"   Has thumbnail: Yes")
             print()
 
@@ -704,7 +769,9 @@ class OllamaChat(QWidget):
             print("No message selected for editing.")
             return
 
-        print(f"Before edit: {len(self.message_history)} messages, {len(self.chat_content)} chat items")
+        print(
+            f"Before edit: {len(self.message_history)} messages, {len(self.chat_content)} chat items"
+        )
 
         # Get the original message to preserve its thumbnail_html
         original_message = self.message_history[self.edit_index]
@@ -715,17 +782,21 @@ class OllamaChat(QWidget):
             "role": "user",  # Ensure we set the role
             "content": new_content,
             "thumbnail_html": thumbnail_html,
-            "model": original_message.get("model", self.default_model)  # Preserve the model
+            "model": original_message.get(
+                "model", self.default_model
+            ),  # Preserve the model
         }
 
         # Remove all messages after the edited one
-        del self.chat_content[self.edit_index:]  # Also clean up chat_content
-        del self.message_history[self.edit_index + 1:]
+        del self.chat_content[self.edit_index :]  # Also clean up chat_content
+        del self.message_history[self.edit_index + 1 :]
 
         # Update chat_content to match message_history exactly
         self.rebuild_chat_content()  # Use rebuild instead of manually appending
 
-        print(f"After edit: {len(self.message_history)} messages, {len(self.chat_content)} chat items")
+        print(
+            f"After edit: {len(self.message_history)} messages, {len(self.chat_content)} chat items"
+        )
 
         # Reset the edit index
         self.edit_index = None
@@ -741,9 +812,11 @@ class OllamaChat(QWidget):
             else:
                 # Use the stored model name if available, otherwise use current model
                 sender = message.get("model", self.default_model)
-                
+
             content = message["content"]
-            thumbnail_html = message.get("thumbnail_html", "")  # Get thumbnail_html if it exists
+            thumbnail_html = message.get(
+                "thumbnail_html", ""
+            )  # Get thumbnail_html if it exists
             self.chat_content.append((sender, content, thumbnail_html))
             print(
                 f"Added message {idx}: {sender} - {content[:50]}... (Thumbnail: {'Yes' if thumbnail_html else 'No'})"
@@ -757,7 +830,11 @@ class OllamaChat(QWidget):
         """Add a new user message to the chat."""
         thumbnail_html = ""
         if (self.selected_screenshot) and (self.screenshot_btn.isVisible()):
-            thumbnail = self.selected_screenshot.scaled(self.thumbnail_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            thumbnail = self.selected_screenshot.scaled(
+                self.thumbnail_size,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
             byte_array = QByteArray()
             buffer = QBuffer(byte_array)
             buffer.open(QIODevice.OpenModeFlag.WriteOnly)
@@ -766,7 +843,9 @@ class OllamaChat(QWidget):
             thumbnail_html = f'<img src="data:image/png;base64,{thumbnail_base64}" alt="Screenshot thumbnail" style="max-width: 200px; max-height: 200px; margin-right: 10px; vertical-align: middle;">'
 
         # Extract model if message starts with @
-        model_to_use = self.active_model or self.default_model  # Use active model if set
+        model_to_use = (
+            self.active_model or self.default_model
+        )  # Use active model if set
         if message.startswith("@"):
             parts = message.split(" ", 1)
             if len(parts) > 0:
@@ -777,24 +856,31 @@ class OllamaChat(QWidget):
                     message = parts[1] if len(parts) > 1 else ""
 
         # Add the message to message_history with the thumbnail_html and model
-        self.message_history.append({
-            "role": "user",
-            "content": message,
-            "thumbnail_html": thumbnail_html,
-            "model": model_to_use
-        })
+        self.message_history.append(
+            {
+                "role": "user",
+                "content": message,
+                "thumbnail_html": thumbnail_html,
+                "model": model_to_use,
+            }
+        )
 
         self.add_message_to_chat("You", message, thumbnail_html)
 
     def send_to_ollama(self):
         # Extract model name if message starts with @
-        model_to_use = self.message_history[-1]["model"]  # Use the model stored with the message
-        
+        model_to_use = self.message_history[-1][
+            "model"
+        ]  # Use the model stored with the message
+
         # Get the screenshot from the last user message if it exists
         if self.screenshot_btn.isVisible():
             last_user_message = self.message_history[-1]
             screenshot = None
-            if "thumbnail_html" in last_user_message and last_user_message["thumbnail_html"]:
+            if (
+                "thumbnail_html" in last_user_message
+                and last_user_message["thumbnail_html"]
+            ):
                 # Convert the base64 thumbnail back to a QImage
                 thumbnail_data = last_user_message["thumbnail_html"]
                 if "base64," in thumbnail_data:
@@ -817,14 +903,11 @@ class OllamaChat(QWidget):
 
         # Create a new array for Ollama that includes the system prompt
         messages_for_ollama = []
-        
+
         # Add the conversation history without modifying it
         for msg in self.message_history:
-            messages_for_ollama.append({
-                "role": msg["role"],
-                "content": msg["content"]
-            })
-        
+            messages_for_ollama.append({"role": msg["role"], "content": msg["content"]})
+
         # Debug print to verify messages
         if DEBUG:
             print(f"System prompt: {self.system_prompt}")
@@ -833,18 +916,18 @@ class OllamaChat(QWidget):
                 print("Screenshot is present")
             else:
                 print("No screenshot")
-        
+
         self.ollama_thread = OllamaThread(
             messages_for_ollama,
             screenshot,  # Use the extracted screenshot
             model_to_use,
             temperature=self.temperature,
-            context_size=self.context_size
+            context_size=self.context_size,
         )
-        
+
         # Store the model being used for this response
         self.current_response_model = model_to_use
-        
+
         self.ollama_thread.response_chunk_ready.connect(self.handle_response_chunk)
         self.ollama_thread.response_complete.connect(self.handle_response_complete)
         self.ollama_thread.debug_screenshot_ready.connect(self.handle_debug_screenshot)
@@ -874,7 +957,7 @@ class OllamaChat(QWidget):
                 display_sender = self.default_model
         else:
             display_sender = sender
-            
+
         self.chat_content.append((display_sender, message, thumbnail_html))
         self.update_chat_display()
 
@@ -884,24 +967,23 @@ class OllamaChat(QWidget):
             sender = item[0] if item[0] is not None else ""
             message = item[1] if item[1] is not None else ""
             thumbnail_html = item[2] if len(item) > 2 and item[2] is not None else ""
-            chat_content.append({
-                "sender": sender,
-                "content": message,
-                "thumbnail": thumbnail_html
-            })
+            chat_content.append(
+                {"sender": sender, "content": message, "thumbnail": thumbnail_html}
+            )
 
         # Escape the chat content for JavaScript
         escaped_content = json.dumps(chat_content)
 
         # Update the chat container content
-        self.chat_display.page().runJavaScript(f"""
+        self.chat_display.page().runJavaScript(
+            f"""
             try {{
                 updateChatContent({escaped_content});
             }} catch (error) {{
                 console.error('Error updating chat content:', error);
             }}
-        """)
-
+        """
+        )
 
     def keyPressEvent(self, event: QKeyEvent):
         if event.key() == Qt.Key.Key_Up:
@@ -931,7 +1013,10 @@ class OllamaChat(QWidget):
             self.edit_index -= 1
 
         # Ensure the selected message is from the user
-        while self.edit_index >= 0 and self.message_history[self.edit_index]["role"] != "user":
+        while (
+            self.edit_index >= 0
+            and self.message_history[self.edit_index]["role"] != "user"
+        ):
             self.edit_index -= 1
 
         if self.edit_index >= 0:
@@ -981,7 +1066,9 @@ class OllamaChat(QWidget):
     def remove_screenshot(self):
         self.selected_screenshot = None
         # Reset button style to original
-        self.screenshot_btn.setStyleSheet("")  # This will use the default style from styles.qss
+        self.screenshot_btn.setStyleSheet(
+            ""
+        )  # This will use the default style from styles.qss
         self.input_field.setPlaceholderText("Type your message...")
 
     def take_screenshot(self):
@@ -1011,13 +1098,16 @@ class OllamaChat(QWidget):
         print("Handling screenshot")  # Debug print
         self.selected_screenshot = screenshot
         self.show()  # Show the window first
-        QTimer.singleShot(200, self._post_screenshot_actions)  # Increased delay slightly
+        QTimer.singleShot(
+            200, self._post_screenshot_actions
+        )  # Increased delay slightly
 
     def _post_screenshot_actions(self):
         print("Performing post-screenshot actions")  # Debug print
-        
+
         # Change button style to indicate screenshot is taken
-        self.screenshot_btn.setStyleSheet("""
+        self.screenshot_btn.setStyleSheet(
+            """
             QPushButton {
                 background-color: #43b581;
                 border: none;
@@ -1026,15 +1116,16 @@ class OllamaChat(QWidget):
             QPushButton:hover {
                 background-color: #3ca374;
             }
-        """)
+        """
+        )
 
         # Update the UI to indicate a screenshot was taken
         self.input_field.setPlaceholderText("Screenshot taken. Type your message...")
-        
+
         # Force focus to input field
         self.input_field.setFocus(Qt.FocusReason.OtherFocusReason)
         self.activateWindow()  # Activate the window to ensure it can receive focus
-        
+
         print("Post-screenshot actions completed")  # Debug print
 
     def handle_response_chunk(self, chunk):
@@ -1056,14 +1147,19 @@ class OllamaChat(QWidget):
             self.current_response = "No response received from Ollama."
 
         # Add the message to history with the model information
-        self.message_history.append({
-            "role": "assistant",
-            "content": self.current_response,
-            "model": self.current_response_model  # Store the model used for this response
-        })
+        self.message_history.append(
+            {
+                "role": "assistant",
+                "content": self.current_response,
+                "model": self.current_response_model,  # Store the model used for this response
+            }
+        )
 
         # Update the chat content
-        if self.chat_content and self.chat_content[-1][0] == self.current_response_model:
+        if (
+            self.chat_content
+            and self.chat_content[-1][0] == self.current_response_model
+        ):
             self.chat_content[-1] = (self.current_response_model, self.current_response)
         else:
             self.add_message_to_chat(self.current_response_model, self.current_response)
@@ -1083,10 +1179,16 @@ class OllamaChat(QWidget):
         if content.strip():
             if self.chat_content and self.chat_content[-1][0] == sender:
                 # Update existing message
-                self.chat_content[-1] = (sender, content, self.chat_content[-1][2])  # Preserve thumbnail
+                self.chat_content[-1] = (
+                    sender,
+                    content,
+                    self.chat_content[-1][2],
+                )  # Preserve thumbnail
             else:
                 # Add new message
-                self.chat_content.append((sender, content, ""))  # Empty thumbnail for new message
+                self.chat_content.append(
+                    (sender, content, "")
+                )  # Empty thumbnail for new message
             self.update_chat_display()
 
     def clear_chat(self):
@@ -1116,18 +1218,26 @@ class OllamaChat(QWidget):
         if self.is_expanded:
             self.expanded_size = current_rect.size()
             new_size = self.compact_size
-            self.toggle_btn.setIcon(QIcon.fromTheme("zoom-in"))  # Change to zoom-in icon when collapsing
+            self.toggle_btn.setIcon(
+                QIcon.fromTheme("zoom-in")
+            )  # Change to zoom-in icon when collapsing
         else:
             self.compact_size = current_rect.size()
             new_size = self.expanded_size
-            self.toggle_btn.setIcon(QIcon.fromTheme("zoom-out"))  # Change to zoom-out icon when expanding
+            self.toggle_btn.setIcon(
+                QIcon.fromTheme("zoom-out")
+            )  # Change to zoom-out icon when expanding
 
-        new_x = screen.right() - new_size.width() - (screen.right() - current_rect.right())
-        new_y = screen.bottom() - new_size.height() - (
-            screen.bottom() - current_rect.bottom()
+        new_x = (
+            screen.right() - new_size.width() - (screen.right() - current_rect.right())
+        )
+        new_y = (
+            screen.bottom()
+            - new_size.height()
+            - (screen.bottom() - current_rect.bottom())
         )
 
-        new_rect = QRect(new_x, new_y, new_size.width()+1, new_size.height()+1)
+        new_rect = QRect(new_x, new_y, new_size.width() + 1, new_size.height() + 1)
         self.setGeometry(new_rect)
         self.is_expanded = not self.is_expanded
 
@@ -1140,7 +1250,7 @@ class OllamaChat(QWidget):
         # Remove the button positioning code since it's handled by the layout
         input_height = 50  # Match the fixed height set in initUI
         new_y = self.height() - input_height - 20  # 20 px padding from bottom
-        
+
         # Find the widget that contains the input_layout
         input_container = self.findChild(QWidget, "input_container")
         if input_container:
@@ -1179,18 +1289,18 @@ class OllamaChat(QWidget):
         self.send_btn.setObjectName("sendButton")
 
     def initialize_chat_display(self):
-        html_path = os.path.join(os.path.dirname(__file__), 'html/chat_template.html')
-        with open(html_path, 'r') as file:
+        html_path = os.path.join(os.path.dirname(__file__), "html/chat_template.html")
+        with open(html_path, "r") as file:
             initial_html = file.read()
 
         # Read and encode the app icon
-        icon_path = os.path.join(os.path.dirname(__file__), 'icons/background.png')
-        with open(icon_path, 'rb') as icon_file:
+        icon_path = os.path.join(os.path.dirname(__file__), "icons/background.png")
+        with open(icon_path, "rb") as icon_file:
             icon_data = icon_file.read()
-            icon_base64 = base64.b64encode(icon_data).decode('utf-8')
+            icon_base64 = base64.b64encode(icon_data).decode("utf-8")
 
         # Replace the placeholder with the base64-encoded image
-        initial_html = initial_html.replace('{{APP_ICON_BASE64}}', icon_base64)
+        initial_html = initial_html.replace("{{APP_ICON_BASE64}}", icon_base64)
 
         self.chat_display.setHtml(initial_html)
 
@@ -1198,16 +1308,22 @@ class OllamaChat(QWidget):
         config_path = "config.json"
         default_system_prompt = get_system_prompt()  # Get the default prompt first
         self.ollama_url = get_ollama_url()
-        
+
         if os.path.exists(config_path):
             try:
                 with open(config_path, "r") as file:
                     config = json.load(file)
-                    self.default_model = config.get("default_model", get_default_model())
+                    self.default_model = config.get(
+                        "default_model", get_default_model()
+                    )
                     self.temperature = config.get("temperature", None)
                     self.context_size = config.get("context_size", None)
-                    self.system_prompt = config.get("system_prompt", default_system_prompt)
-                    self.vision_capable_models = set(config.get("vision_capable_models", []))  # Add this line
+                    self.system_prompt = config.get(
+                        "system_prompt", default_system_prompt
+                    )
+                    self.vision_capable_models = set(
+                        config.get("vision_capable_models", [])
+                    )  # Add this line
             except Exception as e:
                 print(f"Error loading config: {e}")
                 self.default_model = get_default_model()
@@ -1227,8 +1343,12 @@ class OllamaChat(QWidget):
             self.system_prompt = str(self.system_prompt)
 
         # Update the input fields with loaded values
-        self.temperature_input.setText(str(self.temperature) if self.temperature is not None else "")
-        self.context_size_input.setText(str(self.context_size) if self.context_size is not None else "")
+        self.temperature_input.setText(
+            str(self.temperature) if self.temperature is not None else ""
+        )
+        self.context_size_input.setText(
+            str(self.context_size) if self.context_size is not None else ""
+        )
         self.system_prompt_input.setPlainText(self.system_prompt)
 
         # Connect double-click signal to selection handler
@@ -1249,7 +1369,8 @@ class OllamaChat(QWidget):
 
         # Create the menu with custom styling
         tray_menu = QMenu()
-        tray_menu.setStyleSheet("""
+        tray_menu.setStyleSheet(
+            """
             QMenu {
                 background-color: #2f3136;
                 border: 1px solid #202225;
@@ -1271,7 +1392,8 @@ class OllamaChat(QWidget):
                 background: #40444b;
                 margin: 4px 0px;
             }
-        """)
+        """
+        )
 
         show_hide_action = tray_menu.addAction("Show/Hide")
         quit_action = tray_menu.addAction("Quit")
@@ -1292,11 +1414,13 @@ class OllamaChat(QWidget):
 
         # Replace the default context menu with our custom positioned one
         self.tray_icon.activated.connect(
-            lambda reason: show_menu() 
-            if reason == QSystemTrayIcon.ActivationReason.Context 
-            else self.on_tray_icon_activated(reason)
+            lambda reason: (
+                show_menu()
+                if reason == QSystemTrayIcon.ActivationReason.Context
+                else self.on_tray_icon_activated(reason)
+            )
         )
-        
+
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.show()
 
@@ -1312,62 +1436,72 @@ class OllamaChat(QWidget):
 
     def add_vertical_button(self):
         # Check if the button already exists
-        if hasattr(self, 'vertical_button') and self.vertical_button is not None:
+        if hasattr(self, "vertical_button") and self.vertical_button is not None:
             return  # Exit if the button already exists
 
         self.vertical_button = QPushButton(self)
         self.vertical_button.setFixedWidth(15)  # Set only the width
         # Instead, add object name
         self.vertical_button.setObjectName("verticalButton")
-        
+
         # Create and set the initial arrow icon
         self.right_arrow_icon = QIcon("icons/right_arrow.png")
         self.left_arrow_icon = QIcon("icons/left_arrow.png")
         self.vertical_button.setIcon(self.right_arrow_icon)
         self.vertical_button.setIconSize(QSize(24, 24))  # Adjust size as needed
-        
+
         self.vertical_button.clicked.connect(self.toggle_sidebar)
-        
+
         # Position the button
         self.update_vertical_button_position()
 
     def update_vertical_button_position(self):
         if self.sidebar_expanded:
-            self.vertical_button.setGeometry(0, 128, self.vertical_button.width(), self.height() - 256)
+            self.vertical_button.setGeometry(
+                0, 128, self.vertical_button.width(), self.height() - 256
+            )
         else:
             # Set a reduced height for the button when the sidebar is collapsed
             collapsed_height = 96  # Adjust this value as needed
             new_y = (self.height() - collapsed_height) // 2
-            self.vertical_button.setGeometry(0, new_y, self.vertical_button.width(), collapsed_height)
+            self.vertical_button.setGeometry(
+                0, new_y, self.vertical_button.width(), collapsed_height
+            )
         self.vertical_button.raise_()  # Ensure the button is on top
 
     def toggle_sidebar(self):
         screen = QApplication.primaryScreen().availableGeometry()
-        
-        if self.animation and self.animation.state() == QPropertyAnimation.State.Running:
+
+        if (
+            self.animation
+            and self.animation.state() == QPropertyAnimation.State.Running
+        ):
             self.animation.stop()
-        
+
         self.animation = QPropertyAnimation(self, b"geometry")
         self.animation.setDuration(100)
         self.animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
-        
+
         current_geometry = self.geometry()
-        
+
         if self.sidebar_expanded:
             # Collapse the sidebar - reduce width and height
             self.previous_geometry = current_geometry
             collapsed_width = self.vertical_button.width() + 4
             collapsed_height = 96  # Reduced height when collapsed
-            
+
             # Calculate new position to center vertically
-            new_y = current_geometry.y() + (current_geometry.height() - collapsed_height) // 2
+            new_y = (
+                current_geometry.y()
+                + (current_geometry.height() - collapsed_height) // 2
+            )
             new_x = int(screen.right() - collapsed_width * 0.75)
-            
+
             new_rect = QRect(new_x, new_y, collapsed_width, collapsed_height)
             self.animation.setEndValue(new_rect)
             self.sidebar_expanded = False
             self.vertical_button.setIcon(self.left_arrow_icon)
-            
+
             # Hide all controls except the vertical button
             self.chat_display.hide()
             self.input_field.hide()
@@ -1383,7 +1517,7 @@ class OllamaChat(QWidget):
                 self.animation.setEndValue(self.previous_geometry)
             self.sidebar_expanded = True
             self.vertical_button.setIcon(self.right_arrow_icon)
-            
+
             # Show all controls
             self.chat_display.show()
             self.input_field.show()
@@ -1393,34 +1527,35 @@ class OllamaChat(QWidget):
             self.settings_btn.show()
             self.close_btn.show()
             self.toggle_btn.show()
-        
+
         self.animation.finished.connect(self.update_vertical_button_position)
         self.animation.start()
-
 
     def paintEvent(self, event):
         """Override paintEvent to clip the drawing area to the app's shape."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
+
         # Get the rectangle dimensions
         rect = self.rect()
         x, y, w, h = rect.x(), rect.y(), rect.width(), rect.height()
-        
+
         # Define the clipping path to match the app's shape
         path = QPainterPath()
         path.addRoundedRect(x, y, w, h, 20, 20)  # Match the border-radius of the app
-        
+
         # Set the clipping path
         painter.setClipPath(path)
-        
+
         # Call the base class paintEvent to ensure default painting
         super().paintEvent(event)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.dragging = True
-            self.drag_start_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            self.drag_start_position = (
+                event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            )
             event.accept()
 
     def mouseMoveEvent(self, event):
@@ -1453,24 +1588,24 @@ class OllamaChat(QWidget):
 
         # Find the current line
         text_before_cursor = text[:position]
-        current_line = text_before_cursor.split('\n')[-1]
+        current_line = text_before_cursor.split("\n")[-1]
 
         # Only process if line starts with @ and provider is online
-        if current_line.startswith('@') and self.provider_online:
+        if current_line.startswith("@") and self.provider_online:
             # Check if cursor is after a space or model name
             after_at = current_line[1:]
-            if ' ' in after_at:
+            if " " in after_at:
                 self.suggestion_list.hide()
                 return
 
             # Debounce the suggestion update using QTimer
-            if hasattr(self, '_suggestion_timer'):
+            if hasattr(self, "_suggestion_timer"):
                 self._suggestion_timer.stop()
             else:
                 self._suggestion_timer = QTimer()
                 self._suggestion_timer.setSingleShot(True)
                 self._suggestion_timer.timeout.connect(self._update_suggestion_list)
-            
+
             # Store current search text
             self._current_search = current_line[1:].lower()
             self._suggestion_timer.start(150)  # Delay of 150ms
@@ -1480,8 +1615,10 @@ class OllamaChat(QWidget):
     def _update_suggestion_list(self):
         """Actual update of suggestion list with debouncing."""
         self.suggestion_list.clear()
-        filtered_models = [model for model in self.model_names if self._current_search in model.lower()]
-        
+        filtered_models = [
+            model for model in self.model_names if self._current_search in model.lower()
+        ]
+
         if filtered_models:
             self.suggestion_list.addItems(filtered_models)
             self.suggestion_list.show()
@@ -1493,26 +1630,32 @@ class OllamaChat(QWidget):
         # Get the input field's geometry in global coordinates
         input_rect = self.input_field.geometry()
         global_pos = self.input_field.mapToGlobal(input_rect.topLeft())
-        
+
         # Calculate the height based on the number of items (with a maximum)
-        item_height = self.suggestion_list.sizeHintForRow(0)  # Get actual height of an item
+        item_height = self.suggestion_list.sizeHintForRow(
+            0
+        )  # Get actual height of an item
         num_items = min(self.suggestion_list.count(), 10)  # Maximum 10 items shown
         list_height = num_items * item_height + 15
-        
+
         # Position the list above the input field, aligned with its left edge
         # Account for any padding or margins in the input layout
-        x_position = global_pos.x()# + self.input_layout.contentsMargins().left()
+        x_position = global_pos.x()  # + self.input_layout.contentsMargins().left()
         y_position = global_pos.y() - list_height
-        
+
         # Set size and position
-        available_width = self.input_field.width() - self.input_layout.contentsMargins().left()
+        available_width = (
+            self.input_field.width() - self.input_layout.contentsMargins().left()
+        )
         self.suggestion_list.setFixedSize(available_width, list_height)
         self.suggestion_list.move(x_position, y_position)
-        
+
         # Disable horizontal scrollbar and set text elision
-        self.suggestion_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.suggestion_list.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         self.suggestion_list.setTextElideMode(Qt.TextElideMode.ElideRight)
-        
+
         # Add some styling to make it look better
         self.suggestion_list.setObjectName("suggestionList")
 
@@ -1521,15 +1664,15 @@ class OllamaChat(QWidget):
         current_text = self.input_field.toPlainText()
         cursor = self.input_field.textCursor()
         position = cursor.position()
-        
+
         # Find the @ before the cursor
         text_before_cursor = current_text[:position]
-        at_index = text_before_cursor.rfind('@')
-        
+        at_index = text_before_cursor.rfind("@")
+
         if at_index != -1:
             # Find the next space after the cursor position, or end of text if no space
             text_after_at = current_text[at_index:]
-            space_index = text_after_at.find(' ')
+            space_index = text_after_at.find(" ")
             if space_index == -1:
                 # No space found, replace until end of text
                 new_text = current_text[:at_index] + f"@{item.text()} "
@@ -1537,14 +1680,18 @@ class OllamaChat(QWidget):
             else:
                 # Replace only the text between @ and space
                 absolute_space_index = at_index + space_index
-                new_text = current_text[:at_index] + f"@{item.text()}" + current_text[absolute_space_index:]
+                new_text = (
+                    current_text[:at_index]
+                    + f"@{item.text()}"
+                    + current_text[absolute_space_index:]
+                )
                 cursor_position = at_index + len(f"@{item.text()}")
-            
+
             # Update text and cursor position
             self.input_field.setText(new_text)
             cursor.setPosition(cursor_position)
             self.input_field.setTextCursor(cursor)
-        
+
         self.suggestion_list.hide()
         self.input_field.setFocus()
 
@@ -1565,7 +1712,7 @@ class OllamaChat(QWidget):
                     elif event.key() == Qt.Key.Key_Escape:
                         self.suggestion_list.hide()
                         return True
-                
+
                 # Handle Ctrl+Up and Ctrl+Down for message editing
                 if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
                     if event.key() == Qt.Key.Key_Up:
@@ -1574,12 +1721,12 @@ class OllamaChat(QWidget):
                     elif event.key() == Qt.Key.Key_Down:
                         self.show_next_message()
                         return True
-                
+
                 # Regular Enter key handling
                 if event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
                     if event.modifiers() == Qt.KeyboardModifier.ShiftModifier:
                         cursor = self.input_field.textCursor()
-                        cursor.insertText('\n')
+                        cursor.insertText("\n")
                         return True
                     else:
                         self.send_message()
@@ -1596,7 +1743,7 @@ class OllamaChat(QWidget):
         """Restore the window to its original size based on expansion state."""
         screen = QApplication.primaryScreen().availableGeometry()
         current_rect = self.geometry()
-        
+
         if self.is_expanded:
             # If expanded, restore to original expanded size
             new_size = self.original_expanded_size
@@ -1609,9 +1756,15 @@ class OllamaChat(QWidget):
             self.compact_size = current_rect.size()
 
         # Calculate new position to maintain the right edge position
-        new_x = screen.right() - new_size.width() - (screen.right() - current_rect.right())
-        new_y = screen.bottom() - new_size.height() - (screen.bottom() - current_rect.bottom())
-        
+        new_x = (
+            screen.right() - new_size.width() - (screen.right() - current_rect.right())
+        )
+        new_y = (
+            screen.bottom()
+            - new_size.height()
+            - (screen.bottom() - current_rect.bottom())
+        )
+
         # Set the new geometry
         self.setGeometry(new_x, new_y, new_size.width(), new_size.height())
 
@@ -1619,10 +1772,18 @@ class OllamaChat(QWidget):
         """Handle keyboard navigation in the suggestion list."""
         current_row = self.suggestion_list.currentRow()
         if key == Qt.Key.Key_Up:
-            new_row = max(0, current_row - 1) if current_row >= 0 else self.suggestion_list.count() - 1
+            new_row = (
+                max(0, current_row - 1)
+                if current_row >= 0
+                else self.suggestion_list.count() - 1
+            )
         else:  # Key_Down
-            new_row = min(self.suggestion_list.count() - 1, current_row + 1) if current_row >= 0 else 0
-        
+            new_row = (
+                min(self.suggestion_list.count() - 1, current_row + 1)
+                if current_row >= 0
+                else 0
+            )
+
         self.suggestion_list.setCurrentRow(new_row)
         return True
 
@@ -1638,15 +1799,15 @@ class OllamaChat(QWidget):
         document_height = self.input_field.document().size().height()
         margins = self.input_field.contentsMargins()
         total_margins = margins.top() + margins.bottom()
-        
+
         # Calculate new height (minimum 50px, maximum 150px)
         new_height = int(min(max(50, document_height + total_margins), 150))
-        
+
         if new_height != self.input_field.height():
             input_widget = self.input_field.parent()
             input_widget.setFixedHeight(new_height)
             self.input_field.setFixedHeight(new_height)
-            
+
             # Force layout update without modifying chat display height
             self.chat_interface.layout().update()
 
@@ -1659,45 +1820,55 @@ class OllamaChat(QWidget):
         """Regenerate a specific message in the chat history."""
         if index >= len(self.message_history):
             return
-        
+
         # Get the last user message before this point
-        user_messages = [msg for msg in self.message_history[:index] if msg.get('role') == 'user']
+        user_messages = [
+            msg for msg in self.message_history[:index] if msg.get("role") == "user"
+        ]
         if user_messages:
             last_user_message = user_messages[-1]
-            
+
             # Start receiving the new response
             self.is_receiving = True
             self.current_response = ""
-            self.current_response_model = self.message_history[index].get('model', self.default_model)
-            
+            self.current_response_model = self.message_history[index].get(
+                "model", self.default_model
+            )
+
             # Get the screenshot from the last user message
             screenshot = None
-            if 'thumbnail_html' in last_user_message:
+            if "thumbnail_html" in last_user_message:
                 # Extract base64 image data from the thumbnail HTML
                 import re
-                match = re.search(r'src="data:image/png;base64,([^"]+)"', last_user_message['thumbnail_html'])
+
+                match = re.search(
+                    r'src="data:image/png;base64,([^"]+)"',
+                    last_user_message["thumbnail_html"],
+                )
                 if match:
                     base64_data = match.group(1)
                     screenshot = base64.b64decode(base64_data)
                     # Convert bytes to QImage
                     qimage = QImage()
-                    qimage.loadFromData(screenshot, 'PNG')
+                    qimage.loadFromData(screenshot, "PNG")
                     screenshot = qimage
-            
+
             # Create a new thread for this specific regeneration
             self.ollama_thread = OllamaThread(
                 self.message_history[:index],  # Use history up to this point
                 screenshot,  # Include the screenshot for regeneration
                 self.current_response_model,
                 temperature=self.temperature,
-                context_size=self.context_size
+                context_size=self.context_size,
             )
-            
+
             # Connect with custom handlers for regeneration
             self.ollama_thread.response_chunk_ready.connect(
-                lambda chunk: self.handle_regeneration_chunk(chunk, index))
+                lambda chunk: self.handle_regeneration_chunk(chunk, index)
+            )
             self.ollama_thread.response_complete.connect(
-                lambda: self.handle_regeneration_complete(index))
+                lambda: self.handle_regeneration_complete(index)
+            )
             self.ollama_thread.start()
 
     def handle_regeneration_chunk(self, chunk, index):
@@ -1705,34 +1876,33 @@ class OllamaChat(QWidget):
         if chunk.strip():
             self.current_response += chunk
             # Update the specific message being regenerated
-            self.message_history[index]['content'] = self.current_response
+            self.message_history[index]["content"] = self.current_response
             self.rebuild_chat_content()
 
     def handle_regeneration_complete(self, index):
         """Complete the regeneration of a specific message."""
         if not self.current_response:
             self.current_response = "No response received from Ollama."
-        
+
         # Update the final content of the regenerated message
-        self.message_history[index].update({
-            'content': self.current_response,
-            'model': self.current_response_model
-        })
-        
+        self.message_history[index].update(
+            {"content": self.current_response, "model": self.current_response_model}
+        )
+
         # Reset state
         self.current_response = ""
         self.current_response_model = None
         self.is_receiving = False
-        
+
         # Update the display
         self.rebuild_chat_content()
 
     def save_vision_capabilities(self):
         """Save vision capabilities to the config file."""
         try:
-            with open('config.json', 'r+') as f:
+            with open("config.json", "r+") as f:
                 config = json.load(f)
-                config['vision_capable_models'] = list(self.vision_capable_models)
+                config["vision_capable_models"] = list(self.vision_capable_models)
                 f.seek(0)
                 json.dump(config, f, indent=4)
                 f.truncate()
@@ -1742,10 +1912,12 @@ class OllamaChat(QWidget):
     def load_vision_capabilities(self):
         """Load saved vision capabilities from the config file."""
         try:
-            if os.path.exists('config.json'):
-                with open('config.json', 'r') as f:
+            if os.path.exists("config.json"):
+                with open("config.json", "r") as f:
                     config = json.load(f)
-                    self.vision_capable_models = set(config.get('vision_capable_models', []))
+                    self.vision_capable_models = set(
+                        config.get("vision_capable_models", [])
+                    )
         except Exception as e:
             print(f"Error loading vision capabilities: {e}")
             self.vision_capable_models = set()
@@ -1755,7 +1927,7 @@ class OllamaChat(QWidget):
         # Update the default model
         self.default_model = model_name
         self.selected_model = model_name
-        
+
         # Update all default buttons
         for i in range(self.model_list.count()):
             item = self.model_list.item(i)
@@ -1763,16 +1935,19 @@ class OllamaChat(QWidget):
             if widget:
                 default_btn = widget.findChild(QPushButton, "modelDefaultButton")
                 if default_btn:
-                    default_btn.setProperty("is_default", default_btn.property("model_name") == model_name)
+                    default_btn.setProperty(
+                        "is_default", default_btn.property("model_name") == model_name
+                    )
                     self.update_default_button_style(default_btn)
-        
+
         # Save the setting
         save_model_setting(model_name)
 
     def update_default_button_style(self, button):
         """Update the default button style based on its state."""
         is_default = button.property("is_default")
-        button.setStyleSheet(f"""
+        button.setStyleSheet(
+            f"""
             QPushButton {{
                 background-color: {'#43b581' if is_default else 'transparent'};
                 border: none;
@@ -1782,18 +1957,21 @@ class OllamaChat(QWidget):
             QPushButton:hover {{
                 background-color: {'#3ca374' if is_default else '#2f3136'};
             }}
-        """)
+        """
+        )
 
     def check_provider_status(self):
         """Check if the Ollama provider is online."""
         try:
             response = requests.get(f"{self.ollama_url}/api/tags", timeout=0.1)
             is_online = response.status_code == 200
-            
+
             # Update the welcome message status
-            self.chat_display.page().runJavaScript(f"updateProviderStatus({str(is_online).lower()})")
+            self.chat_display.page().runJavaScript(
+                f"updateProviderStatus({str(is_online).lower()})"
+            )
             self.provider_online = is_online
-            
+
         except:
             self.provider_online = False
             self.chat_display.page().runJavaScript("updateProviderStatus(false)")
@@ -1811,15 +1989,17 @@ class OllamaChat(QWidget):
                 self.chat_content[0] = ("System", message, "")
             else:
                 self.chat_content.insert(0, ("System", message, ""))
-        
+
         self.update_chat_display()
 
     def send_message(self):
         """Handle sending or editing a message."""
         if not self.provider_online:
             return
-        
-        message = self.input_field.toPlainText().strip()  # Change from text() to toPlainText()
+
+        message = (
+            self.input_field.toPlainText().strip()
+        )  # Change from text() to toPlainText()
         # Remove the check for empty message
         if message.lower() == "/quit":
             self.close()
@@ -1829,7 +2009,9 @@ class OllamaChat(QWidget):
             return
 
         if self.edit_index is not None:
-            print(f"Submitting edit for message at index {self.edit_index}")  # Debug print
+            print(
+                f"Submitting edit for message at index {self.edit_index}"
+            )  # Debug print
             self.submit_edit(message)
         else:
             print("Adding new message")  # Debug print
@@ -1838,17 +2020,19 @@ class OllamaChat(QWidget):
         self.input_field.clear()
 
         # Return focus to input field and activate window
-        QTimer.singleShot(100, lambda: self.input_field.setFocus(Qt.FocusReason.OtherFocusReason))
+        QTimer.singleShot(
+            100, lambda: self.input_field.setFocus(Qt.FocusReason.OtherFocusReason)
+        )
         QTimer.singleShot(100, self.activateWindow)
-        
+
         # Print the entire message history
         print("\nMessage History:")
         for idx, msg in enumerate(self.message_history):
             print(f"{idx}. Role: {msg['role']}")
             print(f"   Content: {msg['content']}")
-            if 'model' in msg:
+            if "model" in msg:
                 print(f"   Model: {msg['model']}")
-            if 'thumbnail_html' in msg and msg['thumbnail_html']:
+            if "thumbnail_html" in msg and msg["thumbnail_html"]:
                 print(f"   Has thumbnail: Yes")
             print()
 
@@ -1856,9 +2040,9 @@ class OllamaChat(QWidget):
         if self.edit_index is None:
             self.send_to_ollama()
 
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     ex = OllamaChat()
     ex.show()
     sys.exit(app.exec())
-
