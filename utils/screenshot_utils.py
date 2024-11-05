@@ -2,13 +2,18 @@ from PyQt6.QtWidgets import QWidget, QRubberBand, QApplication
 from PyQt6.QtCore import Qt, QRect, QPoint, pyqtSignal
 from PyQt6.QtGui import QPainter, QPen, QColor, QBrush, QImage
 
+
 class ScreenshotSelector(QWidget):
     screenshot_taken = pyqtSignal(object)
 
     def __init__(self, screenshot):
         super().__init__()
         self.screenshot = screenshot
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool
+        )
         self.setGeometry(QApplication.primaryScreen().geometry())
         self.begin = QPoint()
         self.end = QPoint()
@@ -20,19 +25,19 @@ class ScreenshotSelector(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.drawPixmap(self.rect(), self.screenshot)
-        
+
         # Darker overlay
         overlay = QColor(0, 0, 0, 120)
         painter.fillRect(self.rect(), overlay)
-        
+
         if not self.rubberband.isHidden():
             selected_rect = self.rubberband.geometry()
-            
+
             # Draw the original screenshot in the selected area
             painter.setClipRect(selected_rect)
             painter.drawPixmap(self.rect(), self.screenshot)
             painter.setClipRect(self.rect())
-            
+
             # Draw border around selected area
             painter.setPen(QPen(QColor(255, 0, 255), 2))
             painter.drawRect(selected_rect)
@@ -51,13 +56,13 @@ class ScreenshotSelector(QWidget):
     def mouseReleaseEvent(self, event):
         self.rubberband.hide()
         selected_area = QRect(self.begin, self.end).normalized()
-        
+
         # Check if selected area is smaller than 8x8
         if selected_area.width() * selected_area.height() < 8:
             screenshot = self.screenshot.copy()  # Use the entire screenshot
         else:
             screenshot = self.screenshot.copy(selected_area)  # Use selected area
-            
+
         self.screenshot_taken.emit(screenshot)
         self.close()
 
@@ -66,6 +71,7 @@ class ScreenshotSelector(QWidget):
             self.close()
         else:
             super().keyPressEvent(event)
+
 
 def process_image(image, MIN_IMAGE_SIZE=256, MAX_IMAGE_SIZE=1280):
     width = image.width()
@@ -117,5 +123,5 @@ def process_image(image, MIN_IMAGE_SIZE=256, MAX_IMAGE_SIZE=1280):
         target_width,
         target_height,
         Qt.AspectRatioMode.IgnoreAspectRatio,
-        Qt.TransformationMode.SmoothTransformation
+        Qt.TransformationMode.SmoothTransformation,
     )
