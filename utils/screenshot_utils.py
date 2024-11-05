@@ -4,7 +4,6 @@ from PyQt6.QtGui import (
     QPainter,
     QPen,
     QColor,
-    QImage,
     QPixmap,
 )
 
@@ -32,19 +31,16 @@ class ScreenshotSelector(QWidget):
         painter = QPainter(self)
         painter.drawPixmap(self.rect(), self.screenshot)
 
-        # Darker overlay
         overlay = QColor(0, 0, 0, 120)
         painter.fillRect(self.rect(), overlay)
 
         if not self.rubberband.isHidden():
             selected_rect = self.rubberband.geometry()
 
-            # Draw the original screenshot in the selected area
             painter.setClipRect(selected_rect)
             painter.drawPixmap(self.rect(), self.screenshot)
             painter.setClipRect(self.rect())
 
-            # Draw border around selected area
             painter.setPen(QPen(QColor(255, 0, 255), 2))
             painter.drawRect(selected_rect)
 
@@ -61,22 +57,29 @@ class ScreenshotSelector(QWidget):
 
     def mouseReleaseEvent(self, event):
         self.rubberband.hide()
-        selected_area = QRect(self.begin, self.end).normalized()
+        self.end = event.pos()
+        selected_rect = QRect(self.begin, self.end).normalized()
 
-        # Check if selected area is smaller than 8x8
-        if selected_area.width() * selected_area.height() < 8:
+        # Get the device pixel ratio
+        screen = QApplication.primaryScreen()
+        device_pixel_ratio = screen.devicePixelRatio()
+
+        # Adjust the selected rectangle to account for the screen geometry and device pixel ratio
+        screen_geometry = screen.virtualGeometry()
+        selected_rect.moveTopLeft(selected_rect.topLeft() + screen_geometry.topLeft())
+        selected_rect = QRect(
+            int(selected_rect.x() * device_pixel_ratio),
+            int(selected_rect.y() * device_pixel_ratio),
+            int(selected_rect.width() * device_pixel_ratio),
+            int(selected_rect.height() * device_pixel_ratio),
+        )
+
+        if selected_rect.width() * selected_rect.height() < 64:
             screenshot = self.screenshot.copy()  # Use the entire screenshot
         else:
-            screenshot = self.screenshot.copy(selected_area)  # Use selected area
-
+            screenshot = self.screenshot.copy(selected_rect)  # Use selected area
         self.screenshot_taken.emit(screenshot)
         self.close()
-
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Escape:
-            self.close()
-        else:
-            super().keyPressEvent(event)
 
 
 def process_image(pixmap, min_size=256, max_size=1280):
