@@ -1,15 +1,13 @@
 {
-    "default_model": "minicpm-v:latest",
+    "default_model": "minicpm-v:8b",
     "temperature": null,
     "context_size": null,
     "system_prompt": "Answer in english.",
     "vision_capable_models": [
-        "x/llama3.2-vision:latest",
-        "minicpm-v:latest",
-        "minicpm-v:8b-2.6-q8_0",
-        "minicpm-v:8b",
-        "llava-llama3",
         "bakllava",
-        "llava"
+        "llava-llama3",
+        "llava",
+        "minicpm-v",
+        "x/llama3.2-vision"
     ]
 }

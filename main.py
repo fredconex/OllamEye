@@ -435,16 +435,19 @@ class OllamaChat(QWidget):
         # Connect the JavaScript bridge
         self.chat_display.page().loadFinished.connect(self.onLoadFinished)
 
+    @staticmethod
+    def get_base_model_name(model_name):
+        """Extract the base model name before the colon."""
+        return model_name.split(":")[0] if ":" in model_name else model_name
+
     def update_screenshot_button_visibility(self):
         """Update the visibility of the screenshot button based on the current model's capabilities."""
         if self.active_model:
-            self.screenshot_btn.setVisible(
-                self.active_model in self.vision_capable_models
-            )
+            base_model = self.get_base_model_name(self.active_model)
+            self.screenshot_btn.setVisible(base_model in self.vision_capable_models)
         else:
-            self.screenshot_btn.setVisible(
-                self.default_model in self.vision_capable_models
-            )
+            base_model = self.get_base_model_name(self.default_model)
+            self.screenshot_btn.setVisible(base_model in self.vision_capable_models)
 
     def onLoadFinished(self, ok):
         if ok:
@@ -479,6 +482,7 @@ class OllamaChat(QWidget):
             # Create items with fixed button positions
             for model_name in self.model_names:
                 item = QListWidgetItem(self.model_list)
+                base_model = self.get_base_model_name(model_name) # Get base model name
 
                 # Create a widget to hold the model name and icons
                 widget = QWidget()
@@ -531,13 +535,11 @@ class OllamaChat(QWidget):
                 camera_btn.setObjectName("modelCameraButton")
                 camera_btn.setProperty("model_name", model_name)
                 camera_btn.setProperty(
-                    "enabled_state", model_name in self.vision_capable_models
+                    "enabled_state", base_model in self.vision_capable_models
                 )
                 self.update_camera_button_style(camera_btn)
                 camera_btn.clicked.connect(
-                    lambda checked, m=model_name, b=camera_btn: self.handle_model_camera_click(
-                        m, b
-                    )
+                    lambda checked, m=model_name, b=camera_btn: self.handle_model_camera_click(m, b)
                 )
                 button_layout.addWidget(camera_btn)
 
@@ -572,19 +574,29 @@ class OllamaChat(QWidget):
             button.setIcon(QIcon("icons/vision_disabled.png"))
 
     def handle_model_camera_click(self, model_name, button):
-        """Toggle vision capability for a model."""
+        """Toggle vision capability for a model and all its variants."""
+        base_name = self.get_base_model_name(model_name)
         current_state = button.property("enabled_state")
         new_state = not current_state
 
-        # Update the set of vision-capable models
+        # Update the set of vision-capable models using base name
         if new_state:
-            self.vision_capable_models.add(model_name)
+            self.vision_capable_models.add(base_name)
         else:
-            self.vision_capable_models.discard(model_name)
+            self.vision_capable_models.discard(base_name)
 
-        # Update button state and style
-        button.setProperty("enabled_state", new_state)
-        self.update_camera_button_style(button)
+        # Update all related model buttons
+        for index in range(self.model_list.count()):
+            item = self.model_list.item(index)
+            widget = self.model_list.itemWidget(item)
+            if widget:
+                related_camera_btn = widget.findChild(QPushButton, "modelCameraButton")
+                if related_camera_btn:
+                    related_model = related_camera_btn.property("model_name")
+                    if self.get_base_model_name(related_model) == base_name:
+                        # Update the button state
+                        related_camera_btn.setProperty("enabled_state", new_state)
+                        self.update_camera_button_style(related_camera_btn)
 
         # Save the updated capabilities
         self.save_vision_capabilities()
