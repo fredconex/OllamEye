@@ -7,6 +7,9 @@
         "x/llama3.2-vision:latest",
         "minicpm-v:latest",
         "minicpm-v:8b-2.6-q8_0",
-        "minicpm-v:8b"
+        "minicpm-v:8b",
+        "llava-llama3",
+        "bakllava",
+        "llava"
     ]
 }
