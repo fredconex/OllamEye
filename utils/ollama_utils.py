@@ -56,7 +56,6 @@ class OllamaThread(QThread):
                 else:
                     print("Warning: No user message to attach image to")
 
-            print(self.model)
             # Build request parameters
             request_params = {
                 "model": self.model,
@@ -106,7 +105,7 @@ def load_ollama_models():
         # Set a timeout to avoid hanging
         response = requests.get(
             f"{ollama_url}/api/tags",
-            timeout=0.1,  # 1 second timeout
+            timeout=0.1,  # 100ms timeout
             headers={
                 "Connection": "close",  # Prevent keep-alive connections
                 "Accept": "application/json",  # Explicitly request JSON
@@ -151,7 +150,7 @@ def save_model_setting(model):
     except FileNotFoundError:
         settings = {}
 
-    settings["default_ model"] = model
+    settings["default_model"] = model
     with open("config.json", "w") as f:
         json.dump(settings, f)
 
