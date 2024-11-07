@@ -1,7 +1,12 @@
 QWidget#mainWidget {
     background-color: #1E1E1E;
     border-radius: 20px;
-    border: 2px solid #7289DA;
+    border: 0px;
+}
+
+QWidget#outerWidget {
+    background-color: #7289DA;
+    border-radius: 20px;
 }
 
 QLabel {

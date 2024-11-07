@@ -8,6 +8,7 @@ import json
 import base64
 import requests
 import sys
+from math import cos, sin, radians
 
 from PyQt6.QtWidgets import (
     QApplication,
@@ -93,6 +94,14 @@ class OllamaChat(QWidget):
         super().__init__(parent)
         screen = QApplication.primaryScreen().availableGeometry()
 
+        # Add these lines near the start of __init__
+        self.provider_online = False
+        self.is_receiving = False
+        self.gradient_angle = 0
+        self.gradient_color1 = "#1E1E1E"  # Default blue
+        self.gradient_color2 = "#1E1E1E"  # Default dark
+        self.gradient_speed = 0
+
         # Initialize a timer to check model capabilities
         self.model_check_timer = QTimer(self)
         self.model_check_timer.timeout.connect(self.update_screenshot_button_visibility)
@@ -173,10 +182,11 @@ class OllamaChat(QWidget):
         self.provider_status_displayed = False
 
     def initUI(self):
+        # Remove the outer_layout creation and setting since we'll use main_layout directly
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.Tool  # Add this flag
+            | Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
@@ -185,14 +195,28 @@ class OllamaChat(QWidget):
         with open(style_path, "r") as style_file:
             self.setStyleSheet(style_file.read())
 
-        main_layout = QVBoxLayout(self)
+        # Create main layout for the entire widget
+        main_layout = QVBoxLayout(self)  # Set directly on self
         main_layout.setContentsMargins(0, 0, 0, 0)
 
-        main_widget = QWidget(self)
+        # Create outer widget with gradient background
+        outer_widget = QWidget()
+        outer_widget.setObjectName("outerWidget")
+        main_layout.addWidget(outer_widget)
+
+        # Create layout for outer widget
+        outer_layout = QVBoxLayout(outer_widget)
+        outer_layout.setContentsMargins(2, 2, 2, 2)
+
+        # Start the gradient animation
+        self.start_gradient_animation()
+
+        # Create main widget
+        main_widget = QWidget()
         main_widget.setObjectName("mainWidget")
         widget_layout = QVBoxLayout(main_widget)
         widget_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.addWidget(main_widget)
+        outer_layout.addWidget(main_widget)
 
         # Add size grip for resizing at the top-left
         size_grip = QSizeGrip(self)
@@ -440,6 +464,72 @@ class OllamaChat(QWidget):
         """Extract the base model name before the colon."""
         return model_name.split(":")[0] if ":" in model_name else model_name
 
+    def start_gradient_animation(self):
+        """Initialize and start the gradient animation"""
+        self.gradient_angle = 0
+        self.gradient_timer = QTimer(self)
+        self.gradient_timer.timeout.connect(self.update_gradient)
+        self.gradient_timer.start(50)  # Update every 50ms
+        self.gradient_speed = 1  # Normal speed
+        self.update_gradient_state()  # Initial state update
+
+    def update_gradient_state(self):
+        """Update gradient colors based on current state"""
+        if self.is_receiving:
+            self.gradient_color1 = "#FFA100"  # Orange
+            self.gradient_color2 = "#1E1E1E"
+            self.gradient_speed = 20  # Faster rotation when receiving
+        elif not self.provider_online:
+            self.gradient_color1 = "#FFFFFF"  # white
+            self.gradient_color2 = "#1E1E1E"
+            self.gradient_speed = 10  # Medium rotation when waiting for provider
+        else:
+            self.gradient_color1 = "#7289DA"  # Blue
+            self.gradient_color2 = "#1E1E1E"
+            self.gradient_speed = 0  # No rotation in normal state
+
+    def update_gradient(self):
+        """Update the gradient rotation"""
+        if self.gradient_speed > 0:
+            self.gradient_angle = (self.gradient_angle + self.gradient_speed) % 360
+
+            # Map angle to coordinates in range 0-1
+            x1 = (cos(radians(self.gradient_angle)) + 1) / 2
+            y1 = (sin(radians(self.gradient_angle)) + 1) / 2
+            x2 = (cos(radians(self.gradient_angle + 180)) + 1) / 2
+            y2 = (sin(radians(self.gradient_angle + 180)) + 1) / 2
+
+            gradient_style = f"""
+                #outerWidget {{
+                    background: qlineargradient(spread:pad, x1:{x1}, 
+                        y1:{y1}, 
+                        x2:{x2}, 
+                        y2:{y2},
+                        stop:0 {self.gradient_color1}, stop:1 {self.gradient_color2});
+                    border-radius: 20px;
+                }}
+                #mainWidget {{
+                    background-color: #1E1E1E;
+                    border-radius: 20px;
+                    margin: 0px;
+                }}
+            """
+        else:
+            # Solid color when not rotating
+            gradient_style = f"""
+                #outerWidget {{
+                    background: {self.gradient_color1};
+                    border-radius: 20px;
+                }}
+                #mainWidget {{
+                    background-color: #1E1E1E;
+                    border-radius: 20px;
+                    margin: 0px;
+                }}
+            """
+
+        self.findChild(QWidget, "outerWidget").setStyleSheet(gradient_style)
+
     def update_screenshot_button_visibility(self):
         """Update the visibility of the screenshot button based on the current model's capabilities."""
         if self.active_model:
@@ -482,7 +572,7 @@ class OllamaChat(QWidget):
             # Create items with fixed button positions
             for model_name in self.model_names:
                 item = QListWidgetItem(self.model_list)
-                base_model = self.get_base_model_name(model_name) # Get base model name
+                base_model = self.get_base_model_name(model_name)  # Get base model name
 
                 # Create a widget to hold the model name and icons
                 widget = QWidget()
@@ -539,7 +629,9 @@ class OllamaChat(QWidget):
                 )
                 self.update_camera_button_style(camera_btn)
                 camera_btn.clicked.connect(
-                    lambda checked, m=model_name, b=camera_btn: self.handle_model_camera_click(m, b)
+                    lambda checked, m=model_name, b=camera_btn: self.handle_model_camera_click(
+                        m, b
+                    )
                 )
                 button_layout.addWidget(camera_btn)
 
@@ -816,7 +908,8 @@ class OllamaChat(QWidget):
     def rebuild_chat_content(self):
         """Reconstruct chat_content based on message_history."""
         self.chat_content = []  # Clear existing chat content
-        print("Rebuilding chat_content from message_history.")  # Debug print
+        if DEBUG:
+            print("Rebuilding chat_content from message_history.")  # Debug print
 
         for idx, message in enumerate(self.message_history):
             if message["role"] == "user":
@@ -830,13 +923,15 @@ class OllamaChat(QWidget):
                 "thumbnail_html", ""
             )  # Get thumbnail_html if it exists
             self.chat_content.append((sender, content, thumbnail_html))
-            print(
-                f"Added message {idx}: {sender} - {content[:50]}... (Thumbnail: {'Yes' if thumbnail_html else 'No'})"
-            )  # Debug print
+            if DEBUG:
+                print(
+                    f"Added message {idx}: {sender} - {content[:50]}... (Thumbnail: {'Yes' if thumbnail_html else 'No'})"
+                )  # Debug print
 
         # Update the chat display to reflect changes
         self.update_chat_display()
-        print("chat_content rebuild complete.")  # Debug print
+        if DEBUG:
+            print("chat_content rebuild complete.")  # Debug print
 
     def add_new_message(self, message):
         """Add a new user message to the chat."""
@@ -948,10 +1043,9 @@ class OllamaChat(QWidget):
         self.reset_input_area()
 
         self.is_receiving = True
+        self.update_gradient_state()  # Update gradient
         self.send_btn.setIcon(QIcon("icons/stop.png"))
         self.send_btn.setObjectName("stopButton")
-        # Change border color while receiving
-        self.setStyleSheet(self.styleSheet().replace("#7289DA", "#FFA100"))
 
     def add_message_to_chat(self, sender, message, thumbnail_html=""):
         # Use the original model name if it exists in the message history
@@ -1184,9 +1278,9 @@ class OllamaChat(QWidget):
         self.current_response_model = None  # Reset the response model
 
         self.is_receiving = False
+        self.update_gradient_state()  # Update gradient
         self.send_btn.setIcon(QIcon("icons/send.png"))
         self.send_btn.setObjectName("sendButton")
-        self.setStyleSheet(self.styleSheet().replace("#FFA100", "#7289DA"))
 
     def update_last_message(self, sender, content):
         if DEBUG:
@@ -1837,15 +1931,19 @@ class OllamaChat(QWidget):
         if index >= len(self.message_history):
             return
 
-        # Get the last user message before this point
+            # Get the last user message before this point
         user_messages = [
             msg for msg in self.message_history[:index] if msg.get("role") == "user"
         ]
         if user_messages:
             last_user_message = user_messages[-1]
 
-            # Start receiving the new response
+            # Set receiving state and update UI
             self.is_receiving = True
+            self.update_gradient_state()  # Update gradient animation
+            self.send_btn.setIcon(QIcon("icons/stop.png"))
+            self.send_btn.setObjectName("stopButton")
+
             self.current_response = ""
             self.current_response_model = self.message_history[index].get(
                 "model", self.default_model
@@ -1905,10 +2003,11 @@ class OllamaChat(QWidget):
             {"content": self.current_response, "model": self.current_response_model}
         )
 
-        # Reset state
+        # Reset state and update UI
         self.current_response = ""
         self.current_response_model = None
         self.is_receiving = False
+        self.update_gradient_state()  # Update gradient animation
 
         # Update the display
         self.rebuild_chat_content()
@@ -1982,15 +2081,20 @@ class OllamaChat(QWidget):
             response = requests.get(f"{self.ollama_url}/api/tags", timeout=0.1)
             is_online = response.status_code == 200
 
-            # Update the welcome message status
+            if is_online != self.provider_online:  # Only update if state changed
+                self.provider_online = is_online
+                self.update_gradient_state()  # Update gradient
+
             self.chat_display.page().runJavaScript(
                 f"updateProviderStatus({str(is_online).lower()})"
             )
-            self.provider_online = is_online
 
         except:
-            self.provider_online = False
+            if self.provider_online:  # Only update if state changed
+                self.provider_online = False
+                self.update_gradient_state()  # Update gradient
             self.chat_display.page().runJavaScript("updateProviderStatus(false)")
+
         self.send_btn.setEnabled(self.provider_online)
 
     def update_provider_status(self, message):
@@ -2042,15 +2146,16 @@ class OllamaChat(QWidget):
         QTimer.singleShot(100, self.activateWindow)
 
         # Print the entire message history
-        print("\nMessage History:")
-        for idx, msg in enumerate(self.message_history):
-            print(f"{idx}. Role: {msg['role']}")
-            print(f"   Content: {msg['content']}")
-            if "model" in msg:
-                print(f"   Model: {msg['model']}")
-            if "thumbnail_html" in msg and msg["thumbnail_html"]:
-                print(f"   Has thumbnail: Yes")
-            print()
+        if DEBUG:
+            print("\nMessage History:")
+            for idx, msg in enumerate(self.message_history):
+                print(f"{idx}. Role: {msg['role']}")
+                print(f"   Content: {msg['content']}")
+                if "model" in msg:
+                    print(f"   Model: {msg['model']}")
+                if "thumbnail_html" in msg and msg["thumbnail_html"]:
+                    print(f"   Has thumbnail: Yes")
+                print()
 
         # Only send to Ollama if it's a new message, not an edit
         if self.edit_index is None:
