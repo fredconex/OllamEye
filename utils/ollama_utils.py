@@ -2,7 +2,7 @@ import requests
 import json
 import base64
 from datetime import datetime
-from PyQt6.QtCore import QThread, pyqtSignal, QByteArray, QBuffer, QIODevice
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QByteArray, QBuffer, QIODevice
 from PyQt6.QtGui import QImage
 from utils.screenshot_utils import process_image
 from utils.settings_manager import get_ollama_url, get_system_prompt
@@ -15,12 +15,11 @@ class OllamaThread(QThread):
     debug_screenshot_ready = pyqtSignal(QImage)
 
     def __init__(
-        self, messages, screenshot, model, temperature=None, context_size=None
+        self, messages, screenshots, model, temperature=None, context_size=None
     ):
         super().__init__()
         self.messages = messages
-        self.screenshot = screenshot
-        self.screenshot_ready = True
+        self.screenshots = screenshots if screenshots else []  # List of screenshots
         self.MIN_IMAGE_SIZE = 256
         self.MAX_IMAGE_SIZE = 1280
         self.model = model
@@ -35,27 +34,42 @@ class OllamaThread(QThread):
                     0, {"role": "system", "content": get_system_prompt()}
                 )
 
-            if self.screenshot is not None:  # Changed condition
-                processed_image = self.process_image(
-                    self.screenshot
-                )  # Directly use the image
-                self.debug_screenshot_ready.emit(processed_image)
+            if self.screenshots:  # Check if we have any screenshots
+                # Process all screenshots
+                processed_images = []
+                for screenshot in self.screenshots:
+                    processed_image = self.process_image(screenshot)
+                    self.debug_screenshot_ready.emit(processed_image)
 
-                buffer = QByteArray()
-                buffer_io = QBuffer(buffer)
-                buffer_io.open(QIODevice.OpenModeFlag.WriteOnly)
-                success = processed_image.save(buffer_io, "PNG")
-                if not success:
-                    raise Exception("Failed to save image to buffer")
-                img_bytes = buffer.data()
-
-                # Convert bytes to base64 string
-                img_base64 = base64.b64encode(img_bytes).decode("utf-8")
+                    # Save image to bytes using PNG format
+                    buffer = QByteArray()
+                    buffer_io = QBuffer(buffer)
+                    buffer_io.open(QIODevice.OpenModeFlag.WriteOnly)
+                    success = processed_image.save(buffer_io, "PNG")
+                    buffer_io.close()  # Make sure to close the buffer
+                    
+                    if not success:
+                        raise Exception("Failed to save image to buffer")
+                    
+                    img_bytes = buffer.data()
+                    img_base64 = base64.b64encode(img_bytes).decode("utf-8")
+                    processed_images.append(img_base64)
 
                 if len(self.messages) > 1:
-                    self.messages[-1]["images"] = [img_base64]  # Send as base64 string
+                    # Get the last user message
+                    last_message = self.messages[-1]
+                    
+                    # Add image placeholders to the content
+                    original_content = last_message["content"].strip()
+                    last_message["content"] = f"{original_content}".strip()
+                    
+                    # Add the base64 images
+                    last_message["images"] = processed_images
+                    
+                    print(f"Sending message with {len(processed_images)} images")  # Debug print
+                    print(f"Message content: {last_message['content']}")  # Debug print
                 else:
-                    print("Warning: No user message to attach image to")
+                    print("Warning: No user message to attach images to")
 
             # Build request parameters
             request_params = {
@@ -71,6 +85,11 @@ class OllamaThread(QThread):
                 request_params["options"]["context_size"] = self.context_size
 
             ollama_url = get_ollama_url()
+
+            # Debug print the request
+            print("Request to Ollama:")
+            print(f"URL: {ollama_url}/api/chat")
+            print("Messages structure:", json.dumps(request_params["messages"], indent=2))
 
             # Make streaming request to Ollama API
             response = requests.post(
@@ -96,7 +115,33 @@ class OllamaThread(QThread):
             self.response_complete.emit()
 
     def process_image(self, image):
-        return process_image(image, self.MIN_IMAGE_SIZE, self.MAX_IMAGE_SIZE)
+        """Process image to ensure it meets Ollama's requirements."""
+        if isinstance(image, QImage):
+            # Convert QImage to the right format if needed
+            if image.format() != QImage.Format.Format_RGB32:
+                image = image.convertToFormat(QImage.Format.Format_RGB32)
+            
+            # Scale image if needed while maintaining aspect ratio
+            current_size = max(image.width(), image.height())
+            if current_size > self.MAX_IMAGE_SIZE:
+                image = image.scaled(
+                    self.MAX_IMAGE_SIZE,
+                    self.MAX_IMAGE_SIZE,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+            elif current_size < self.MIN_IMAGE_SIZE:
+                image = image.scaled(
+                    self.MIN_IMAGE_SIZE,
+                    self.MIN_IMAGE_SIZE,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+            
+            print(f"Processed image size: {image.width()}x{image.height()}")  # Debug print
+            return image
+        else:
+            raise ValueError("Input must be a QImage")
 
 
 def load_ollama_models():
