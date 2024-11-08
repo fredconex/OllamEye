@@ -172,9 +172,7 @@ class OllamaChat(QWidget):
         self.create_tray_icon()
         self.dragging = False
         self.drag_start_position = None
-        # Initialize attributes
-        self.temperature = None
-        self.context_size = None
+
         self.suggestion_list = QListWidget(self)  # Add this line
         self.suggestion_list.setWindowFlags(
             Qt.WindowType.FramelessWindowHint | Qt.WindowType.ToolTip
