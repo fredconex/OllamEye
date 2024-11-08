@@ -385,12 +385,31 @@ class OllamaChat(QWidget):
         self.toggle_btn.setObjectName("toggleButton")
         self.toggle_btn.clicked.connect(self.toggle_window_size)
 
-        # Add App label
-        ollam_eye_label = QLabel("PixelLlama")
-        ollam_eye_label.setObjectName("AppLabel")
+        # Add App label and version
+        app_label_container = QWidget()
+        app_label_layout = QVBoxLayout(app_label_container)
+        app_label_layout.setContentsMargins(0, 0, 0, 0)
+        app_label_layout.setSpacing(0)
+
+        pixelllama_label = QLabel("PixelLlama")
+        pixelllama_label.setObjectName("AppLabel")
+
+        version_label = QLabel("v0.92a")
+        version_label.setObjectName("VersionLabel")
+        version_label.setStyleSheet("""
+            QLabel#VersionLabel {
+                color: #72767d;
+                font-size: 10px;
+                padding: 0;
+                margin: 0;
+            }
+        """)
+
+        app_label_layout.addWidget(pixelllama_label)
+        app_label_layout.addWidget(version_label)
 
         toggle_layout.addWidget(self.toggle_btn)
-        toggle_layout.addWidget(ollam_eye_label)
+        toggle_layout.addWidget(app_label_container)
         toggle_layout.addStretch(1)  # This will push the button and label to the left
 
         header.insertLayout(0, toggle_layout)

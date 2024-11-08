@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 :: PixelLlama info
-echo PixelLlama - version 0.91a
+echo PixelLlama - version 0.92a
 echo Launching...
 
 :: Set the name of your virtual environment
