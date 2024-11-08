@@ -1,14 +1,15 @@
 {
-    "default_model": "minicpm-v:latest",
+    "ollama_url": "http://localhost:11434",
+    "default_model": "minicpm-v:8b",
     "temperature": null,
     "context_size": null,
-    "system_prompt": "Answer in english.",
+    "system_prompt": "Answer in English.",
     "vision_capable_models": [
-        "llava-llama3",
         "bakllava",
-        "x/llama3.2-vision",
-        "minicpm-v",
         "llava",
-        "llama3.2-vision"
+        "llama3.2-vision",
+        "x/llama3.2-vision",
+        "llava-llama3",
+        "minicpm-v"
     ]
 }

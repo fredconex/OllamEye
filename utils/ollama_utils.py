@@ -5,6 +5,7 @@ from datetime import datetime
 from PyQt6.QtCore import QThread, pyqtSignal, QByteArray, QBuffer, QIODevice
 from PyQt6.QtGui import QImage
 from utils.screenshot_utils import process_image
+from utils.settings_manager import get_ollama_url, get_system_prompt
 
 
 class OllamaThread(QThread):
@@ -123,48 +124,6 @@ def load_ollama_models():
     except Exception as e:
         print(f"Error loading models: {e}")
         return ["Error loading models"]
-
-
-def get_default_model():
-    try:
-        with open("config.json", "r") as f:
-            settings = json.load(f)
-        return settings.get("default_model", "minicpm-v:8b")
-    except FileNotFoundError:
-        return "minicpm-v:8b"
-
-
-def get_ollama_url():
-    try:
-        with open("config.json", "r") as f:
-            settings = json.load(f)
-        return settings.get("ollama_url", "http://localhost:11434")
-    except FileNotFoundError:
-        return "http://localhost:11434"
-
-
-def save_model_setting(model):
-    try:
-        with open("config.json", "r") as f:
-            settings = json.load(f)
-    except FileNotFoundError:
-        settings = {}
-
-    settings["default_model"] = model
-    with open("config.json", "w") as f:
-        json.dump(settings, f)
-
-
-def get_system_prompt():
-    try:
-        with open("config.json", "r") as f:
-            settings = json.load(f)
-        return settings.get(
-            "system_prompt",
-            "You are a helpful AI assistant, answer in same language of question.",
-        )
-    except FileNotFoundError:
-        return "You are a helpful AI assistant, answer in same language of question."
 
 
 # Add this new function

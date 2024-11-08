@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# Launching PixelLlama -> version 0.9a
-echo "Launching PixelLlama -> version 0.9a"
+# PixelLlama info
+echo "PixelLlama - version 0.91a"
+echo "Launching PixelLlama..."
 
 # Set the name of your virtual environment
 VENV_NAME=".venv"
@@ -33,7 +34,7 @@ if [ -n "$need_install" ]; then
 fi
 
 # Run the Python script using python
-echo "Running PixelLlama -> version 0.9a"
+echo "Running PixelLlama..."
 python main.py "$@"
 
 # Deactivate the virtual environment

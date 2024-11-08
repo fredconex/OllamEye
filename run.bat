@@ -1,7 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
 
-echo Launching PixelLlama -> version 0.9a
+:: PixelLlama info
+echo PixelLlama - version 0.91a
+echo Launching...
 
 :: Set the name of your virtual environment
 set VENV_NAME=.env
@@ -33,7 +35,7 @@ if defined need_install (
 )
 
 :: Run the Python script using pythonw
-echo Running PixelLlama -> version 0.9a
+echo Running...
 start "" pythonw main.py %*
 
 :: Deactivate the virtual environment

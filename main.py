@@ -9,6 +9,13 @@ import base64
 import requests
 import sys
 from math import cos, sin, radians
+from utils.settings_manager import (
+    load_settings_from_file, 
+    save_settings_to_file, 
+    get_ollama_url, 
+    get_default_model, 
+    get_system_prompt, 
+)
 
 from PyQt6.QtWidgets import (
     QApplication,
@@ -59,12 +66,8 @@ from PyQt6.QtGui import (
 from datetime import datetime
 from utils.screenshot_utils import ScreenshotSelector, process_image
 from utils.ollama_utils import (
-    OllamaThread,
-    load_ollama_models,
-    get_default_model,
-    save_model_setting,
-    get_system_prompt,
-    get_ollama_url,
+    OllamaThread,    
+    load_ollama_models
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import QUrl
@@ -86,6 +89,7 @@ class Bridge(QObject):
 
     @pyqtSlot(int)
     def editMessage(self, index):
+        print("editMessage", index)
         self.chat_window.edit_message(index)
 
 
@@ -93,6 +97,16 @@ class OllamaChat(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         screen = QApplication.primaryScreen().availableGeometry()
+
+        # Replace direct settings loading with settings_manager
+        self.settings = load_settings_from_file()
+        
+        self.system_prompt = self.settings.get("system_prompt")
+        self.ollama_url = self.settings["ollama_url"]
+        self.default_model = self.settings.get("default_model")
+        self.temperature = self.settings.get("temperature")
+        self.context_size = self.settings.get("context_size")
+        self.vision_capable_models = set(self.settings.get("vision_capable_models", []))
 
         # Add these lines near the start of __init__
         self.provider_online = False
@@ -136,8 +150,7 @@ class OllamaChat(QWidget):
         self.selected_model = None
         self.active_model = None  # Add this line to track the currently active model
         self.vision_capable_models = set()  # Store models with vision capability
-        self.load_vision_capabilities()  # Load saved capabilities
-
+        
         # Create the input field before initUI
         self.input_field = QTextEdit()
         self.input_field.setPlaceholderText("Type your message...")
@@ -356,6 +369,17 @@ class OllamaChat(QWidget):
         settings_title = QLabel("Settings")
         settings_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         scroll_layout.addWidget(settings_title)
+
+        # Create an input field for the Ollama URL
+        self.ollama_url_label = QLabel("Ollama URL:")
+        scroll_layout.addWidget(self.ollama_url_label)
+
+        # Add a QLineEdit widget for entering the Ollama URL
+        self.ollama_url_input = QLineEdit()
+        self.ollama_url_input.setText(get_ollama_url())        
+        self.ollama_url_input.setPlaceholderText("http://localhost:11434")  # Set a placeholder text
+        scroll_layout.addWidget(self.ollama_url_input)
+
 
         self.model_label = QLabel("Select Ollama Model:")
         scroll_layout.addWidget(self.model_label)
@@ -690,9 +714,6 @@ class OllamaChat(QWidget):
                         related_camera_btn.setProperty("enabled_state", new_state)
                         self.update_camera_button_style(related_camera_btn)
 
-        # Save the updated capabilities
-        self.save_vision_capabilities()
-
     def filter_models(self, text):
         """Filter the model list based on the search text."""
         for index in range(self.model_list.count()):
@@ -711,43 +732,63 @@ class OllamaChat(QWidget):
             return label.text()
 
         return None
+    
+    def load_settings(self):
+        """Load settings using settings_manager"""
+        self.settings = load_settings_from_file()
+        
+        # Update instance variables
+        self.default_model = self.settings.get("default_model")
+        self.temperature = self.settings.get("temperature")
+        self.context_size = self.settings.get("context_size")
+        self.system_prompt = self.settings.get("system_prompt")
+        self.ollama_url = self.settings.get("ollama_url")
+        self.vision_capable_models = set(self.settings.get("vision_capable_models", []))
+        
+        # Update UI elements
+        self.temperature_input.setText(str(self.temperature) if self.temperature is not None else "")
+        self.context_size_input.setText(str(self.context_size) if self.context_size is not None else "")
+        self.system_prompt_input.setPlainText(self.system_prompt)
+        self.ollama_url_input.setText(self.ollama_url)
+
+        return self.settings
 
     def apply_settings(self):
-        # Save temperature and context size settings
+        """Save settings using settings_manager"""
+        # Get values from UI
         temperature = self.temperature_input.text()
         context_size = self.context_size_input.text()
-
-        # Validate and store temperature
+        
+        # Validate temperature
         try:
             self.temperature = float(temperature)
-            # Clamp the temperature value between 0.0 and 1.0
             self.temperature = max(0.0, min(self.temperature, 1.0))
         except ValueError:
-            self.temperature = None  # Use default if invalid
+            self.temperature = None
 
-        # Validate and store context size
+        # Validate context size
         try:
             self.context_size = int(context_size)
-            # Clamp the context size value between 0 and 65536
             self.context_size = max(0, min(self.context_size, 65536))
         except ValueError:
-            self.context_size = None  # Use default if invalid
+            self.context_size = None
 
-        # Save system prompt setting
+        # Update settings
         self.system_prompt = self.system_prompt_input.toPlainText()
+        self.ollama_url = self.ollama_url_input.text()
 
-        # Save settings to config.json
-        config = {
-            "default_model": (
-                self.selected_model if self.selected_model else self.default_model
-            ),
+        # Update the vision model list
+        self.vision_capable_models = set(self.vision_capable_models)
+
+        # Save settings using settings_manager
+        save_settings_to_file({
+            "ollama_url": self.ollama_url,
+            "default_model": self.selected_model if self.selected_model else self.default_model,
             "temperature": self.temperature,
             "context_size": self.context_size,
             "system_prompt": self.system_prompt,
-            "vision_capable_models": list(self.vision_capable_models),  # Add this line
-        }
-        with open("config.json", "w") as file:
-            json.dump(config, file, indent=4)
+            "vision_capable_models": list(self.vision_capable_models),
+        })
 
         self.load_settings()
         self.toggle_settings()
@@ -762,24 +803,12 @@ class OllamaChat(QWidget):
             self.settings_btn.setIcon(QIcon.fromTheme("go-previous"))
             self.is_settings_visible = True
 
+            # Load settings
+            self.load_settings()
+
             # Reload the model list
             self.model_list.clear()
             self.load_models()
-
-            # Select the current model in the list
-            items = self.model_list.findItems(
-                self.default_model, Qt.MatchFlag.MatchExactly
-            )
-            if items:
-                self.model_list.setCurrentItem(items[0])
-
-            # Update temperature and context size inputs
-            self.temperature_input.setText(
-                str(self.temperature) if self.temperature is not None else ""
-            )
-            self.context_size_input.setText(
-                str(self.context_size) if self.context_size is not None else ""
-            )
 
     def cancel_settings(self):
         self.toggle_settings()
@@ -792,8 +821,13 @@ class OllamaChat(QWidget):
 
     def edit_message(self, index):
         """Start editing a message at the given index."""
-        print(f"Starting edit for message at index {index}")  # Debug print
 
+        # +1 to skip system message
+        index += 1
+
+        print(f"Starting edit for message at index {index}")  # Debug print
+  
+  
         if index >= len(self.message_history):
             print(
                 f"Invalid index {index} for message history of length {len(self.message_history)}"
@@ -912,6 +946,10 @@ class OllamaChat(QWidget):
             print("Rebuilding chat_content from message_history.")  # Debug print
 
         for idx, message in enumerate(self.message_history):
+            # Skip system messages
+            if message["role"] == "system":
+                continue
+                
             if message["role"] == "user":
                 sender = "You"
             else:
@@ -919,14 +957,10 @@ class OllamaChat(QWidget):
                 sender = message.get("model", self.default_model)
 
             content = message["content"]
-            thumbnail_html = message.get(
-                "thumbnail_html", ""
-            )  # Get thumbnail_html if it exists
+            thumbnail_html = message.get("thumbnail_html", "")  # Get thumbnail_html if it exists
             self.chat_content.append((sender, content, thumbnail_html))
             if DEBUG:
-                print(
-                    f"Added message {idx}: {sender} - {content[:50]}... (Thumbnail: {'Yes' if thumbnail_html else 'No'})"
-                )  # Debug print
+                print(f"Added message {idx}: {sender} - {content[:50]}... (Thumbnail: {'Yes' if thumbnail_html else 'No'})")  # Debug print
 
         # Update the chat display to reflect changes
         self.update_chat_display()
@@ -974,78 +1008,70 @@ class OllamaChat(QWidget):
 
         self.add_message_to_chat("You", message, thumbnail_html)
 
-    def send_to_ollama(self):
-        # Extract model name if message starts with @
-        model_to_use = self.message_history[-1][
-            "model"
-        ]  # Use the model stored with the message
-
-        # Get the screenshot from the last user message if it exists
-        if self.screenshot_btn.isVisible():
-            last_user_message = self.message_history[-1]
-            screenshot = None
-            if (
-                "thumbnail_html" in last_user_message
-                and last_user_message["thumbnail_html"]
-            ):
-                # Convert the base64 thumbnail back to a QImage
-                thumbnail_data = last_user_message["thumbnail_html"]
-                if "base64," in thumbnail_data:
-                    try:
-                        base64_img = thumbnail_data.split("base64,")[1].split('"')[0]
-                        img_data = QByteArray.fromBase64(base64_img.encode())
-                        screenshot = QImage()
-                        if screenshot.loadFromData(img_data):
-                            print("Successfully loaded image from thumbnail")
-                        else:
-                            print("Failed to load image from thumbnail")
-                            screenshot = None
-                    except Exception as e:
-                        print(f"Error converting thumbnail to image: {e}")
-                        screenshot = None
-            else:
-                screenshot = self.selected_screenshot
+    def send_to_ollama(self, regenerate_index=None):
+        """
+        Unified function to send messages to Ollama for both new messages and regeneration.
+        
+        Args:
+            regenerate_index (int, optional): If provided, regenerates the message at this index.
+        """
+        # Determine which messages to include
+        if regenerate_index is not None:
+            messages_to_send = self.message_history[:regenerate_index]
+            model_to_use = self.message_history[regenerate_index].get("model", self.default_model)
         else:
-            screenshot = None
+            messages_to_send = self.message_history
+            model_to_use = self.message_history[-1]["model"]  # Use model from last message
 
-        # Create a new array for Ollama that includes the system prompt
-        messages_for_ollama = []
+        # Find the last user message with a screenshot
+        screenshot = None
+        for msg in reversed(messages_to_send):
+            if msg.get("role") == "user" and msg.get("thumbnail_html"):
+                try:
+                    # Extract base64 image data from the thumbnail HTML
+                    import re
+                    match = re.search(r'src="data:image/png;base64,([^"]+)"', msg["thumbnail_html"])
+                    if match:
+                        base64_data = match.group(1)
+                        img_data = base64.b64decode(base64_data)
+                        qimage = QImage()
+                        qimage.loadFromData(img_data, "PNG")
+                        screenshot = qimage
+                        break
+                except Exception as e:
+                    print(f"Error processing screenshot: {e}")
 
-        # Add the conversation history without modifying it
-        for msg in self.message_history:
-            messages_for_ollama.append({"role": msg["role"], "content": msg["content"]})
+        # Set up receiving state
+        self.is_receiving = True
+        self.update_gradient_state()
+        self.send_btn.setIcon(QIcon("icons/stop.png"))
+        self.send_btn.setObjectName("stopButton")
+        self.current_response = ""
+        self.current_response_model = model_to_use
 
-        # Debug print to verify messages
-        if DEBUG:
-            print(f"System prompt: {self.system_prompt}")
-            print(f"Messages being sent to Ollama: {messages_for_ollama}")
-            if screenshot:
-                print("Screenshot is present")
-            else:
-                print("No screenshot")
-
+        # Create and start Ollama thread
         self.ollama_thread = OllamaThread(
-            messages_for_ollama,
-            screenshot,  # Use the extracted screenshot
+            messages_to_send,
+            screenshot,
             model_to_use,
             temperature=self.temperature,
             context_size=self.context_size,
         )
 
-        # Store the model being used for this response
-        self.current_response_model = model_to_use
+        # Connect signals based on whether we're regenerating or not
+        if regenerate_index is not None:
+            self.ollama_thread.response_chunk_ready.connect(
+                lambda chunk: self.handle_response_chunk(chunk, regenerate_index)
+            )
+            self.ollama_thread.response_complete.connect(
+                lambda: self.handle_response_complete(regenerate_index)
+            )
+        else:
+            self.ollama_thread.response_chunk_ready.connect(self.handle_response_chunk)
+            self.ollama_thread.response_complete.connect(self.handle_response_complete)
 
-        self.ollama_thread.response_chunk_ready.connect(self.handle_response_chunk)
-        self.ollama_thread.response_complete.connect(self.handle_response_complete)
         self.ollama_thread.debug_screenshot_ready.connect(self.handle_debug_screenshot)
         self.ollama_thread.start()
-
-        self.reset_input_area()
-
-        self.is_receiving = True
-        self.update_gradient_state()  # Update gradient
-        self.send_btn.setIcon(QIcon("icons/stop.png"))
-        self.send_btn.setObjectName("stopButton")
 
     def add_message_to_chat(self, sender, message, thumbnail_html=""):
         # Use the original model name if it exists in the message history
@@ -1238,47 +1264,58 @@ class OllamaChat(QWidget):
 
         print("Post-screenshot actions completed")  # Debug print
 
-    def handle_response_chunk(self, chunk):
-        # print(f"Handling chunk: {chunk}")
-        # Only append the chunk if it's not empty
+    def handle_response_chunk(self, chunk, update_index=None):
+        """
+        Handle response chunks from Ollama.
+        
+        Args:
+            chunk (str): The response chunk from Ollama
+            update_index (int, optional): If provided, updates the message at this index
+        """
         self.current_response += chunk
-        # Only update if we have actual content
         if self.current_response.strip():
-            self.update_last_message(self.current_response_model, self.current_response)
+            if update_index is not None:
+                # Update specific message for regeneration
+                self.message_history[update_index]["content"] = self.current_response
+                self.rebuild_chat_content()
+            else:
+                # Update last message for new responses
+                self.update_last_message(self.current_response_model, self.current_response)
 
         # Trigger smooth scroll after updating the content
         self.chat_display.page().runJavaScript("smoothScrollToBottom();")
 
-    def handle_response_complete(self):
-        """Finalize the response from Ollama."""
-        if DEBUG:
-            print(f"Response complete: {self.current_response}")
+    def handle_response_complete(self, update_index=None):
+        """
+        Handle completion of Ollama response.
+        
+        Args:
+            update_index (int, optional): If provided, updates the message at this index
+        """
         if not self.current_response:
             self.current_response = "No response received from Ollama."
 
-        # Add the message to history with the model information
-        self.message_history.append(
-            {
+        if update_index is not None:
+            # Update regenerated message
+            self.message_history[update_index].update({
+                "content": self.current_response,
+                "model": self.current_response_model
+            })
+            self.rebuild_chat_content()
+        else:
+            # Add new message to history
+            self.message_history.append({
                 "role": "assistant",
                 "content": self.current_response,
-                "model": self.current_response_model,  # Store the model used for this response
-            }
-        )
-
-        # Update the chat content
-        if (
-            self.chat_content
-            and self.chat_content[-1][0] == self.current_response_model
-        ):
-            self.chat_content[-1] = (self.current_response_model, self.current_response)
-        else:
+                "model": self.current_response_model
+            })
             self.add_message_to_chat(self.current_response_model, self.current_response)
 
+        # Reset state
         self.current_response = ""
-        self.current_response_model = None  # Reset the response model
-
+        self.current_response_model = None
         self.is_receiving = False
-        self.update_gradient_state()  # Update gradient
+        self.update_gradient_state()
         self.send_btn.setIcon(QIcon("icons/send.png"))
         self.send_btn.setObjectName("sendButton")
 
@@ -1413,61 +1450,6 @@ class OllamaChat(QWidget):
         initial_html = initial_html.replace("{{APP_ICON_BASE64}}", icon_base64)
 
         self.chat_display.setHtml(initial_html)
-
-    def load_settings(self):
-        config_path = "config.json"
-        default_system_prompt = get_system_prompt()  # Get the default prompt first
-        self.ollama_url = get_ollama_url()
-
-        if os.path.exists(config_path):
-            try:
-                with open(config_path, "r") as file:
-                    config = json.load(file)
-                    self.default_model = config.get(
-                        "default_model", get_default_model()
-                    )
-                    self.temperature = config.get("temperature", None)
-                    self.context_size = config.get("context_size", None)
-                    self.system_prompt = config.get(
-                        "system_prompt", default_system_prompt
-                    )
-                    self.vision_capable_models = set(
-                        config.get("vision_capable_models", [])
-                    )  # Add this line
-            except Exception as e:
-                print(f"Error loading config: {e}")
-                self.default_model = get_default_model()
-                self.temperature = None
-                self.context_size = None
-                self.system_prompt = default_system_prompt
-                self.vision_capable_models = set()  # Add this line
-        else:
-            self.default_model = get_default_model()
-            self.temperature = None
-            self.context_size = None
-            self.system_prompt = default_system_prompt
-            self.vision_capable_models = set()  # Add this line
-
-        # Ensure system_prompt is a string
-        if not isinstance(self.system_prompt, str):
-            self.system_prompt = str(self.system_prompt)
-
-        # Update the input fields with loaded values
-        self.temperature_input.setText(
-            str(self.temperature) if self.temperature is not None else ""
-        )
-        self.context_size_input.setText(
-            str(self.context_size) if self.context_size is not None else ""
-        )
-        self.system_prompt_input.setPlainText(self.system_prompt)
-
-        # Connect double-click signal to selection handler
-        self.model_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-        self.model_list.itemDoubleClicked.connect(self.handle_model_selection)
-
-        # Update the model list style based on the selected model
-        self.selected_model = self.default_model
-        print(f"Selected model: {self.selected_model}")
 
     def terminate_application(self):
         self.tray_icon.hide()
@@ -1931,111 +1913,64 @@ class OllamaChat(QWidget):
         if index >= len(self.message_history):
             return
 
-            # Get the last user message before this point
-        user_messages = [
-            msg for msg in self.message_history[:index] if msg.get("role") == "user"
-        ]
-        if user_messages:
-            last_user_message = user_messages[-1]
+        # Call the unified send_to_ollama function with the regeneration index
+        self.send_to_ollama(regenerate_index=index+1)
 
-            # Set receiving state and update UI
-            self.is_receiving = True
-            self.update_gradient_state()  # Update gradient animation
-            self.send_btn.setIcon(QIcon("icons/stop.png"))
-            self.send_btn.setObjectName("stopButton")
+    def handle_response_chunk(self, chunk, update_index=None):
+        """
+        Handle response chunks from Ollama.
+        
+        Args:
+            chunk (str): The response chunk from Ollama
+            update_index (int, optional): If provided, updates the message at this index
+        """
+        self.current_response += chunk
+        if self.current_response.strip():
+            if update_index is not None:
+                # Update specific message for regeneration
+                self.message_history[update_index]["content"] = self.current_response
+                self.rebuild_chat_content()
+            else:
+                # For new messages, just update the display without adding to history
+                self.update_last_message(self.current_response_model, self.current_response)
 
-            self.current_response = ""
-            self.current_response_model = self.message_history[index].get(
-                "model", self.default_model
-            )
+        # Trigger smooth scroll after updating the content
+        self.chat_display.page().runJavaScript("smoothScrollToBottom();")
 
-            # Get the screenshot from the last user message
-            screenshot = None
-            if "thumbnail_html" in last_user_message:
-                # Extract base64 image data from the thumbnail HTML
-                import re
-
-                match = re.search(
-                    r'src="data:image/png;base64,([^"]+)"',
-                    last_user_message["thumbnail_html"],
-                )
-                if match:
-                    base64_data = match.group(1)
-                    screenshot = base64.b64decode(base64_data)
-                    # Convert bytes to QImage
-                    qimage = QImage()
-                    qimage.loadFromData(screenshot, "PNG")
-                    screenshot = qimage
-
-            # Create a new thread for this specific regeneration
-            self.ollama_thread = OllamaThread(
-                self.message_history[:index],  # Use history up to this point
-                screenshot,  # Include the screenshot for regeneration
-                self.current_response_model,
-                temperature=self.temperature,
-                context_size=self.context_size,
-            )
-
-            # Connect with custom handlers for regeneration
-            self.ollama_thread.response_chunk_ready.connect(
-                lambda chunk: self.handle_regeneration_chunk(chunk, index)
-            )
-            self.ollama_thread.response_complete.connect(
-                lambda: self.handle_regeneration_complete(index)
-            )
-            self.ollama_thread.start()
-
-    def handle_regeneration_chunk(self, chunk, index):
-        """Handle chunks for message regeneration."""
-        if chunk.strip():
-            self.current_response += chunk
-            # Update the specific message being regenerated
-            self.message_history[index]["content"] = self.current_response
-            self.rebuild_chat_content()
-
-    def handle_regeneration_complete(self, index):
-        """Complete the regeneration of a specific message."""
+    def handle_response_complete(self, update_index=None):
+        """
+        Handle completion of Ollama response.
+        
+        Args:
+            update_index (int, optional): If provided, updates the message at this index
+        """
         if not self.current_response:
             self.current_response = "No response received from Ollama."
 
-        # Update the final content of the regenerated message
-        self.message_history[index].update(
-            {"content": self.current_response, "model": self.current_response_model}
-        )
+        if update_index is not None:
+            # Update regenerated message
+            self.message_history[update_index].update({
+                "content": self.current_response,
+                "model": self.current_response_model
+            })
+            self.rebuild_chat_content()
+        else:
+            # For new messages, add to history and update display
+            self.message_history.append({
+                "role": "assistant",
+                "content": self.current_response,
+                "model": self.current_response_model
+            })
+            # No need to call add_message_to_chat since rebuild_chat_content will handle it
+            self.rebuild_chat_content()
 
-        # Reset state and update UI
+        # Reset state
         self.current_response = ""
         self.current_response_model = None
         self.is_receiving = False
-        self.update_gradient_state()  # Update gradient animation
-
-        # Update the display
-        self.rebuild_chat_content()
-
-    def save_vision_capabilities(self):
-        """Save vision capabilities to the config file."""
-        try:
-            with open("config.json", "r+") as f:
-                config = json.load(f)
-                config["vision_capable_models"] = list(self.vision_capable_models)
-                f.seek(0)
-                json.dump(config, f, indent=4)
-                f.truncate()
-        except Exception as e:
-            print(f"Error saving vision capabilities: {e}")
-
-    def load_vision_capabilities(self):
-        """Load saved vision capabilities from the config file."""
-        try:
-            if os.path.exists("config.json"):
-                with open("config.json", "r") as f:
-                    config = json.load(f)
-                    self.vision_capable_models = set(
-                        config.get("vision_capable_models", [])
-                    )
-        except Exception as e:
-            print(f"Error loading vision capabilities: {e}")
-            self.vision_capable_models = set()
+        self.update_gradient_state()
+        self.send_btn.setIcon(QIcon("icons/send.png"))
+        self.send_btn.setObjectName("sendButton")
 
     def handle_default_model_click(self, model_name, button):
         """Handle clicking the default model button."""
@@ -2054,9 +1989,6 @@ class OllamaChat(QWidget):
                         "is_default", default_btn.property("model_name") == model_name
                     )
                     self.update_default_button_style(default_btn)
-
-        # Save the setting
-        save_model_setting(model_name)
 
     def update_default_button_style(self, button):
         """Update the default button style based on its state."""
