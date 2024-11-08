@@ -61,6 +61,7 @@ from PyQt6.QtGui import (
     QPainterPath,
     QImage,
     QColor,
+    QPixmap,
 )
 
 from datetime import datetime
@@ -97,6 +98,12 @@ class OllamaChat(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         screen = QApplication.primaryScreen().availableGeometry()
+
+        # Add thumbnail size constants
+        self.THUMBNAIL_SIZE = 64  # Main container size
+        self.THUMBNAIL_INNER_SIZE = 56  # Actual thumbnail size
+        self.THUMBNAIL_BTN_SIZE = 16  # Delete button size
+        self.THUMBNAIL_BTN_MARGIN = 0  # Button margin from top-right
 
         # Replace direct settings loading with settings_manager
         self.settings = load_settings_from_file()
@@ -191,6 +198,72 @@ class OllamaChat(QWidget):
         self.provider_check_timer.start(5000)  # Check every 5 seconds
         self.provider_online = False
         self.provider_status_displayed = False
+
+        # Add these new attributes for multiple screenshots
+        self.selected_screenshots = []  # List to store multiple screenshots
+        self.MAX_SCREENSHOTS = 3  # Maximum number of allowed screenshots
+        self.thumbnail_containers = []  # List to store thumbnail containers
+
+        # Create thumbnail containers
+        for i in range(self.MAX_SCREENSHOTS):
+            container = self.create_thumbnail_container()
+            self.thumbnail_containers.append(container)
+            container.hide()
+
+    def create_thumbnail_container(self):
+        """Create a new thumbnail container with label and delete button."""
+        container = QWidget()
+        container.setFixedSize(self.THUMBNAIL_SIZE, self.THUMBNAIL_SIZE)
+        
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 8, 8, 0)
+        layout.setSpacing(0)
+
+        # Create label container
+        label_container = QWidget(container)
+        label_container.setFixedSize(self.THUMBNAIL_INNER_SIZE, self.THUMBNAIL_INNER_SIZE)
+        label_layout = QHBoxLayout(label_container)
+        label_layout.setContentsMargins(0, 0, 0, 0)
+        label_layout.setSpacing(0)
+        label_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Add thumbnail label
+        thumbnail_label = QLabel()
+        thumbnail_label.setFixedSize(self.THUMBNAIL_INNER_SIZE, self.THUMBNAIL_INNER_SIZE)
+        thumbnail_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        thumbnail_label.setStyleSheet("background-color: transparent;")
+        label_layout.addWidget(thumbnail_label)
+
+        # Add the label container to main layout
+        layout.addWidget(label_container)
+
+        # Add delete button
+        delete_btn = QPushButton(container)
+        delete_btn.setFixedSize(self.THUMBNAIL_BTN_SIZE, self.THUMBNAIL_BTN_SIZE)
+        delete_btn.setIcon(QIcon("icons/close.png"))
+        delete_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2f3136;
+                border: none;
+                border-radius: 8px;
+                margin: 0;
+                padding: 0;
+            }
+            QPushButton:hover {
+                background-color: #ed4245;
+            }
+        """)
+        
+        # Position the delete button
+        btn_position = self.THUMBNAIL_INNER_SIZE - self.THUMBNAIL_BTN_SIZE + self.THUMBNAIL_BTN_MARGIN
+        delete_btn.move(btn_position, self.THUMBNAIL_BTN_MARGIN)
+        delete_btn.raise_()
+
+        # Store references to label and button
+        container.thumbnail_label = thumbnail_label
+        container.delete_btn = delete_btn
+
+        return container
 
     def initUI(self):
         # Remove the outer_layout creation and setting since we'll use main_layout directly
@@ -316,12 +389,60 @@ class OllamaChat(QWidget):
         )
         chat_layout.addWidget(self.chat_display, 1)
 
-        # Input area
+        # Modify the input area section:
         input_widget = QWidget()
-        # Create input_layout as instance variable
         self.input_layout = QHBoxLayout(input_widget)
         self.input_layout.setContentsMargins(0, 0, 0, 0)
         self.input_layout.setSpacing(10)
+
+        # Add thumbnail container with adjusted layout
+        self.thumbnail_container = QWidget()
+        self.thumbnail_container.setFixedSize(self.THUMBNAIL_SIZE, self.THUMBNAIL_SIZE)
+        self.thumbnail_container.hide()
+        thumbnail_layout = QHBoxLayout(self.thumbnail_container)
+        thumbnail_layout.setContentsMargins(0, 8, 8, 0)
+        thumbnail_layout.setSpacing(0)
+
+        # Create a container for the thumbnail label
+        thumbnail_label_container = QWidget(self.thumbnail_container)
+        thumbnail_label_container.setFixedSize(self.THUMBNAIL_INNER_SIZE, self.THUMBNAIL_INNER_SIZE)
+        thumbnail_label_layout = QHBoxLayout(thumbnail_label_container)
+        thumbnail_label_layout.setContentsMargins(0, 0, 0, 0)
+        thumbnail_label_layout.setSpacing(0)
+        thumbnail_label_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Add thumbnail label to its container
+        self.thumbnail_label = QLabel()
+        self.thumbnail_label.setFixedSize(self.THUMBNAIL_INNER_SIZE, self.THUMBNAIL_INNER_SIZE)
+        self.thumbnail_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.thumbnail_label.setStyleSheet("background-color: transparent;")
+        thumbnail_label_layout.addWidget(self.thumbnail_label)
+
+        # Add the thumbnail label container to the main thumbnail layout
+        thumbnail_layout.addWidget(thumbnail_label_container)
+
+        # Add delete button overlay
+        self.delete_thumbnail_btn = QPushButton(self.thumbnail_container)
+        self.delete_thumbnail_btn.setFixedSize(self.THUMBNAIL_BTN_SIZE, self.THUMBNAIL_BTN_SIZE)
+        self.delete_thumbnail_btn.setIcon(QIcon("icons/close.png"))
+        self.delete_thumbnail_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2f3136;
+                border: none;
+                border-radius: 8px;
+                margin: 0;
+                padding: 0;
+            }
+            QPushButton:hover {
+                background-color: #ed4245;
+            }
+        """)
+        self.delete_thumbnail_btn.clicked.connect(self.remove_screenshot)
+        
+        # Position the delete button in the top-right corner
+        btn_position = self.THUMBNAIL_INNER_SIZE - self.THUMBNAIL_BTN_SIZE + self.THUMBNAIL_BTN_MARGIN
+        self.delete_thumbnail_btn.move(btn_position, self.THUMBNAIL_BTN_MARGIN)
+        self.delete_thumbnail_btn.raise_()
 
         # Add camera icon button
         self.screenshot_btn = QPushButton()
@@ -331,11 +452,6 @@ class OllamaChat(QWidget):
         self.screenshot_btn.clicked.connect(self.toggle_screenshot)
         self.original_button_style = self.screenshot_btn.styleSheet()
 
-        # Add the input field to layout
-        self.input_layout.addWidget(self.screenshot_btn)
-        self.input_layout.addWidget(
-            self.input_field, 1
-        )  # Give the input field more space
 
         self.send_btn = QPushButton()
         self.send_btn.setFixedSize(30, 30)
@@ -343,6 +459,11 @@ class OllamaChat(QWidget):
         self.send_btn.setText("")
         self.send_btn.setObjectName("sendButton")
         self.send_btn.clicked.connect(self.send_or_stop_message)
+
+        # Add components to input layout
+        self.input_layout.addWidget(self.screenshot_btn)
+        self.input_layout.addWidget(self.thumbnail_container)
+        self.input_layout.addWidget(self.input_field, 1)  # Give the input field more space
         self.input_layout.addWidget(self.send_btn)
 
         # Add the input widget to the chat layout
@@ -856,10 +977,9 @@ class OllamaChat(QWidget):
 
     def send_message(self):
         """Handle sending or editing a message."""
-        message = (
-            self.input_field.toPlainText().strip()
-        )  # Change from text() to toPlainText()
-        # Remove the check for empty message
+        message = self.input_field.toPlainText().strip()
+        
+        # Handle special commands
         if message.lower() == "/quit":
             self.close()
             return
@@ -867,21 +987,21 @@ class OllamaChat(QWidget):
             self.clear_chat()
             return
 
+        # Don't send if there's no message and no screenshots
+        if not message and not self.selected_screenshots:
+            return
+
         if self.edit_index is not None:
-            print(
-                f"Submitting edit for message at index {self.edit_index}"
-            )  # Debug print
+            print(f"Submitting edit for message at index {self.edit_index}")
             self.submit_edit(message)
         else:
-            print("Adding new message")  # Debug print
+            print("Adding new message")
             self.add_new_message(message)
 
         self.reset_input_area()
 
         # Return focus to input field and activate window
-        QTimer.singleShot(
-            100, lambda: self.input_field.setFocus(Qt.FocusReason.OtherFocusReason)
-        )
+        QTimer.singleShot(100, lambda: self.input_field.setFocus(Qt.FocusReason.OtherFocusReason))
         QTimer.singleShot(100, self.activateWindow)
 
         # Print the entire message history
@@ -895,8 +1015,8 @@ class OllamaChat(QWidget):
                 print(f"   Has thumbnail: Yes")
             print()
 
+        # Always send to Ollama for new messages (not edits)
         if self.edit_index is None:
-            # Only send to Ollama if it's a new message, not an edit
             self.send_to_ollama()
 
     def submit_edit(self, new_content):
@@ -968,23 +1088,24 @@ class OllamaChat(QWidget):
     def add_new_message(self, message):
         """Add a new user message to the chat."""
         thumbnail_html = ""
-        if (self.selected_screenshot) and (self.screenshot_btn.isVisible()):
-            thumbnail = self.selected_screenshot.scaled(
-                self.thumbnail_size,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            byte_array = QByteArray()
-            buffer = QBuffer(byte_array)
-            buffer.open(QIODevice.OpenModeFlag.WriteOnly)
-            thumbnail.save(buffer, "PNG")
-            thumbnail_base64 = byte_array.toBase64().data().decode()
-            thumbnail_html = f'<img src="data:image/png;base64,{thumbnail_base64}" alt="Screenshot thumbnail" style="max-width: 200px; max-height: 200px; margin-right: 10px; vertical-align: middle;">'
+        
+        # Generate thumbnail HTML for all screenshots
+        if self.selected_screenshots and self.screenshot_btn.isVisible():
+            for screenshot in self.selected_screenshots:
+                thumbnail = screenshot.scaled(
+                    self.thumbnail_size,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                byte_array = QByteArray()
+                buffer = QBuffer(byte_array)
+                buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+                thumbnail.save(buffer, "PNG")
+                thumbnail_base64 = byte_array.toBase64().data().decode()
+                thumbnail_html += f'<img src="data:image/png;base64,{thumbnail_base64}" alt="Screenshot thumbnail" style="max-width: 200px; max-height: 200px; margin-right: 10px; vertical-align: middle;">'
 
         # Extract model if message starts with @
-        model_to_use = (
-            self.active_model or self.default_model
-        )  # Use active model if set
+        model_to_use = self.active_model or self.default_model
         if message.startswith("@"):
             parts = message.split(" ", 1)
             if len(parts) > 0:
@@ -995,68 +1116,66 @@ class OllamaChat(QWidget):
                     message = parts[1] if len(parts) > 1 else ""
 
         # Add the message to message_history with the thumbnail_html and model
-        self.message_history.append(
-            {
-                "role": "user",
-                "content": message,
-                "thumbnail_html": thumbnail_html,
-                "model": model_to_use,
-            }
-        )
+        self.message_history.append({
+            "role": "user",
+            "content": message,
+            "thumbnail_html": thumbnail_html,
+            "model": model_to_use,
+        })
 
+        # Add message and thumbnails to chat display in a single entry
         self.add_message_to_chat("You", message, thumbnail_html)
 
     def send_to_ollama(self, regenerate_index=None):
-        """
-        Unified function to send messages to Ollama for both new messages and regeneration.
-        
-        Args:
-            regenerate_index (int, optional): If provided, regenerates the message at this index.
-        """
-        # Determine which messages to include
+        """Send message to Ollama."""
         if regenerate_index is not None:
             messages_to_send = self.message_history[:regenerate_index]
-            model_to_use = self.message_history[regenerate_index].get("model", self.default_model)
         else:
+            message = self.input_field.toPlainText().strip()
+            #if not message and not self.selected_screenshots:
+            #    return
+
+            # Don't add a new message here - it's already handled in add_new_message
             messages_to_send = self.message_history
-            model_to_use = self.message_history[-1]["model"]  # Use model from last message
 
-        # Find the last user message with a screenshot
-        screenshot = None
-        for msg in reversed(messages_to_send):
-            if msg.get("role") == "user" and msg.get("thumbnail_html"):
-                try:
-                    # Extract base64 image data from the thumbnail HTML
-                    import re
-                    match = re.search(r'src="data:image/png;base64,([^"]+)"', msg["thumbnail_html"])
-                    if match:
-                        base64_data = match.group(1)
-                        img_data = base64.b64decode(base64_data)
-                        qimage = QImage()
-                        qimage.loadFromData(img_data, "PNG")
-                        screenshot = qimage
-                        break
-                except Exception as e:
-                    print(f"Error processing screenshot: {e}")
+            # Clear input and screenshots after getting the message
+            self.input_field.clear()
+            self.selected_screenshots.clear()
+            self.update_thumbnails()
 
-        # Set up receiving state
-        self.is_receiving = True
-        self.update_gradient_state()
-        self.send_btn.setIcon(QIcon("icons/stop.png"))
-        self.send_btn.setObjectName("stopButton")
-        self.current_response = ""
-        self.current_response_model = model_to_use
+        # Get the current model
+        model_to_use = self.selected_model if self.selected_model else self.default_model
+
+        # Extract screenshots from the last user message
+        screenshots = []
+        if not regenerate_index:  # Only for new messages
+            for msg in reversed(messages_to_send):
+                if msg.get("role") == "user" and msg.get("thumbnail_html"):
+                    try:
+                        # Extract all base64 image data
+                        import re
+                        matches = re.finditer(r'src="data:image/png;base64,([^"]+)"', msg["thumbnail_html"])
+                        for match in matches:
+                            base64_data = match.group(1)
+                            img_data = base64.b64decode(base64_data)
+                            qimage = QImage()
+                            qimage.loadFromData(img_data)
+                            screenshots.append(qimage)
+                        if screenshots:  # If we found screenshots, break
+                            break
+                    except Exception as e:
+                        print(f"Error processing screenshots: {e}")
 
         # Create and start Ollama thread
         self.ollama_thread = OllamaThread(
             messages_to_send,
-            screenshot,
+            screenshots,
             model_to_use,
             temperature=self.temperature,
             context_size=self.context_size,
         )
 
-        # Connect signals based on whether we're regenerating or not
+        # Connect signals and start thread
         if regenerate_index is not None:
             self.ollama_thread.response_chunk_ready.connect(
                 lambda chunk: self.handle_response_chunk(chunk, regenerate_index)
@@ -1070,6 +1189,12 @@ class OllamaChat(QWidget):
 
         self.ollama_thread.debug_screenshot_ready.connect(self.handle_debug_screenshot)
         self.ollama_thread.start()
+
+        # Update UI state
+        self.is_receiving = True
+        self.update_gradient_state()
+        self.send_btn.setIcon(QIcon("icons/stop.png"))
+        self.send_btn.setObjectName("stopButton")
 
     def add_message_to_chat(self, sender, message, thumbnail_html=""):
         # Use the original model name if it exists in the message history
@@ -1195,10 +1320,8 @@ class OllamaChat(QWidget):
 
     def remove_screenshot(self):
         self.selected_screenshot = None
-        # Reset button style to original
-        self.screenshot_btn.setStyleSheet(
-            ""
-        )  # This will use the default style from styles.qss
+        self.thumbnail_container.hide()
+        self.screenshot_btn.setStyleSheet("")  # Reset to default style
         self.input_field.setPlaceholderText("Type your message...")
 
     def take_screenshot(self):
@@ -1225,33 +1348,85 @@ class OllamaChat(QWidget):
             QTimer.singleShot(100, self.show)  # Delay showing the main window
 
     def handle_screenshot(self, screenshot):
-        print("Handling screenshot")  # Debug print
+        """Handle new screenshot addition."""
+        if len(self.selected_screenshots) >= self.MAX_SCREENSHOTS:
+            self.show_error_message("Maximum Screenshots", 
+                                  f"Maximum of {self.MAX_SCREENSHOTS} screenshots allowed.")
+            return
 
-        # Process the screenshot to ensure it is within the desired size range
+        # Process the screenshot
         processed_screenshot = process_image(screenshot)
+        self.selected_screenshots.append(processed_screenshot)
+        
+        # Update thumbnails
+        self.update_thumbnails()
+        
+        self.show()
+        QTimer.singleShot(200, self._post_screenshot_actions)
 
-        self.selected_screenshot = processed_screenshot
-        self.show()  # Show the window first
-        QTimer.singleShot(
-            200, self._post_screenshot_actions
-        )  # Increased delay slightly
+    def update_thumbnails(self):
+        """Update all thumbnail displays."""
+        for i, container in enumerate(self.thumbnail_containers):
+            if i < len(self.selected_screenshots):
+                # Show and update container
+                self.update_single_thumbnail(container, self.selected_screenshots[i], i)
+                container.show()
+                # Connect delete button if not already connected
+                if not container.delete_btn.receivers(container.delete_btn.clicked):
+                    container.delete_btn.clicked.connect(lambda checked, idx=i: self.remove_screenshot(idx))
+            else:
+                container.hide()
+
+        # Update input layout
+        self.update_input_layout()
+
+    def update_single_thumbnail(self, container, screenshot, index):
+        """Update a single thumbnail container with the screenshot."""
+        max_size = self.THUMBNAIL_INNER_SIZE
+        original_size = screenshot.size()
+        scaled_size = original_size.scaled(max_size, max_size, Qt.AspectRatioMode.KeepAspectRatio)
+        
+        thumbnail = screenshot.scaled(
+            scaled_size.width(),
+            scaled_size.height(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
+        )
+        
+        display_pixmap = QPixmap(max_size, max_size)
+        display_pixmap.fill(Qt.GlobalColor.transparent)
+        
+        painter = QPainter(display_pixmap)
+        x = (max_size - scaled_size.width()) // 2
+        y = (max_size - scaled_size.height()) // 2
+        painter.drawImage(x, y, thumbnail)
+        painter.end()
+        
+        container.thumbnail_label.setPixmap(display_pixmap)
+
+    def remove_screenshot(self, index):
+        """Remove screenshot at specified index."""
+        if 0 <= index < len(self.selected_screenshots):
+            del self.selected_screenshots[index]
+            self.update_thumbnails()
+
+        if not self.selected_screenshots:
+            self.screenshot_btn.setStyleSheet("")
+            self.input_field.setPlaceholderText("Type your message...")
+
+    def update_input_layout(self):
+        """Update input layout with current thumbnails."""
+        # Remove existing thumbnails from layout
+        for container in self.thumbnail_containers:
+            self.input_layout.removeWidget(container)
+
+        # Add visible thumbnails back to layout
+        for i, container in enumerate(self.thumbnail_containers):
+            if i < len(self.selected_screenshots):
+                self.input_layout.insertWidget(2 + i, container)
 
     def _post_screenshot_actions(self):
         print("Performing post-screenshot actions")  # Debug print
-
-        # Change button style to indicate screenshot is taken
-        self.screenshot_btn.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #43b581;
-                border: none;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #3ca374;
-            }
-        """
-        )
 
         # Update the UI to indicate a screenshot was taken
         self.input_field.setPlaceholderText("Screenshot taken. Type your message...")
@@ -1307,7 +1482,8 @@ class OllamaChat(QWidget):
                 "content": self.current_response,
                 "model": self.current_response_model
             })
-            self.add_message_to_chat(self.current_response_model, self.current_response)
+            # No need to call add_message_to_chat since rebuild_chat_content will handle it
+            self.rebuild_chat_content()
 
         # Reset state
         self.current_response = ""
@@ -1402,9 +1578,9 @@ class OllamaChat(QWidget):
             input_container.setGeometry(20, new_y, self.width() - 40, input_height)
 
     def reset_input_area(self):
-        self.input_field.clear()  # This works for both QLineEdit and QTextEdit
+        self.input_field.clear()
         if self.selected_screenshot:
-            self.remove_screenshot()  # Use the remove_screenshot method instead
+            self.remove_screenshot()
 
     def handle_debug_screenshot(self, processed_image):
         self.debug_screenshot = processed_image
@@ -1913,62 +2089,6 @@ class OllamaChat(QWidget):
 
         # Call the unified send_to_ollama function with the regeneration index
         self.send_to_ollama(regenerate_index=index+1)
-
-    def handle_response_chunk(self, chunk, update_index=None):
-        """
-        Handle response chunks from Ollama.
-        
-        Args:
-            chunk (str): The response chunk from Ollama
-            update_index (int, optional): If provided, updates the message at this index
-        """
-        self.current_response += chunk
-        if self.current_response.strip():
-            if update_index is not None:
-                # Update specific message for regeneration
-                self.message_history[update_index]["content"] = self.current_response
-                self.rebuild_chat_content()
-            else:
-                # For new messages, just update the display without adding to history
-                self.update_last_message(self.current_response_model, self.current_response)
-
-        # Trigger smooth scroll after updating the content
-        self.chat_display.page().runJavaScript("smoothScrollToBottom();")
-
-    def handle_response_complete(self, update_index=None):
-        """
-        Handle completion of Ollama response.
-        
-        Args:
-            update_index (int, optional): If provided, updates the message at this index
-        """
-        if not self.current_response:
-            self.current_response = "No response received from Ollama."
-
-        if update_index is not None:
-            # Update regenerated message
-            self.message_history[update_index].update({
-                "content": self.current_response,
-                "model": self.current_response_model
-            })
-            self.rebuild_chat_content()
-        else:
-            # For new messages, add to history and update display
-            self.message_history.append({
-                "role": "assistant",
-                "content": self.current_response,
-                "model": self.current_response_model
-            })
-            # No need to call add_message_to_chat since rebuild_chat_content will handle it
-            self.rebuild_chat_content()
-
-        # Reset state
-        self.current_response = ""
-        self.current_response_model = None
-        self.is_receiving = False
-        self.update_gradient_state()
-        self.send_btn.setIcon(QIcon("icons/send.png"))
-        self.send_btn.setObjectName("sendButton")
 
     def handle_default_model_click(self, model_name, button):
         """Handle clicking the default model button."""
