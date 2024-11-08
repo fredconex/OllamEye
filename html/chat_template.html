@@ -19,6 +19,8 @@
             background-color: #1E1E1E;
             color: #D4D4D4;
             font-family: Arial, sans-serif;
+            overflow-x: hidden;
+            word-wrap: break-word;
         }
         body {
             display: flex;
@@ -120,8 +122,11 @@
             display: none; /* Hide the app header */
         }
         .app-icon {
-            width: 256px; /* Make the icon bigger */
-            height: 512px;
+            max-width: 100%;  /* Instead of fixed width */
+            max-height: 80vh; /* Limit height to 40% of viewport height */
+            width: auto;      /* Allow width to adjust proportionally */
+            height: auto;     /* Allow height to adjust proportionally */
+            object-fit: contain; /* Ensure image maintains aspect ratio */
         }
         #welcome-message {
             text-align: center;

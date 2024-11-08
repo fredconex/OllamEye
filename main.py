@@ -290,6 +290,9 @@ class OllamaChat(QWidget):
         return container
 
     def initUI(self):
+        # Set minimum size to prevent the window from becoming too small
+        self.setMinimumSize(300, 400)
+
         # Remove the outer_layout creation and setting since we'll use main_layout directly
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
