@@ -290,8 +290,6 @@ class OllamaChat(QWidget):
         return container
 
     def initUI(self):
-        # Set minimum size to prevent the window from becoming too small
-        self.setMinimumSize(300, 400)
 
         # Remove the outer_layout creation and setting since we'll use main_layout directly
         self.setWindowFlags(
@@ -1822,6 +1820,7 @@ class OllamaChat(QWidget):
         current_geometry = self.geometry()
 
         if self.sidebar_expanded:
+            self.setMinimumSize(64, 152)
             # Collapse the sidebar - reduce width and height
             self.previous_geometry = current_geometry
             collapsed_width = self.vertical_button.width() + 4
@@ -1849,6 +1848,7 @@ class OllamaChat(QWidget):
             self.close_btn.hide()
             self.toggle_btn.hide()
         else:
+            self.setMinimumSize(300, 400)
             # Expand the sidebar - restore previous size and position
             if self.previous_geometry:
                 self.animation.setEndValue(self.previous_geometry)
