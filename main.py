@@ -878,7 +878,7 @@ class OllamaChat(QWidget):
             print("Adding new message")  # Debug print
             self.add_new_message(message)
 
-        self.input_field.clear()
+        self.reset_input_area()
 
         # Return focus to input field and activate window
         QTimer.singleShot(
@@ -2043,55 +2043,6 @@ class OllamaChat(QWidget):
                 self.chat_content.insert(0, ("System", message, ""))
 
         self.update_chat_display()
-
-    def send_message(self):
-        """Handle sending or editing a message."""
-        if not self.provider_online:
-            return
-
-        message = (
-            self.input_field.toPlainText().strip()
-        )  # Change from text() to toPlainText()
-        # Remove the check for empty message
-        if message.lower() == "/quit":
-            self.close()
-            return
-        elif message.lower() == "/clear":
-            self.clear_chat()
-            return
-
-        if self.edit_index is not None:
-            print(
-                f"Submitting edit for message at index {self.edit_index}"
-            )  # Debug print
-            self.submit_edit(message)
-        else:
-            print("Adding new message")  # Debug print
-            self.add_new_message(message)
-
-        self.input_field.clear()
-
-        # Return focus to input field and activate window
-        QTimer.singleShot(
-            100, lambda: self.input_field.setFocus(Qt.FocusReason.OtherFocusReason)
-        )
-        QTimer.singleShot(100, self.activateWindow)
-
-        # Print the entire message history
-        if DEBUG:
-            print("\nMessage History:")
-            for idx, msg in enumerate(self.message_history):
-                print(f"{idx}. Role: {msg['role']}")
-                print(f"   Content: {msg['content']}")
-                if "model" in msg:
-                    print(f"   Model: {msg['model']}")
-                if "thumbnail_html" in msg and msg["thumbnail_html"]:
-                    print(f"   Has thumbnail: Yes")
-                print()
-
-        # Only send to Ollama if it's a new message, not an edit
-        if self.edit_index is None:
-            self.send_to_ollama()
 
 
 if __name__ == "__main__":
