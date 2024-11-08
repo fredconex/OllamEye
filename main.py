@@ -64,6 +64,7 @@ from PyQt6.QtGui import (
     QPixmap,
     QKeySequence,
     QDropEvent,
+    QCursor,
 )
 
 from datetime import datetime
@@ -1352,17 +1353,37 @@ class OllamaChat(QWidget):
         QTimer.singleShot(100, self._delayed_screenshot)
 
     def _delayed_screenshot(self):
-        print("Starting delayed screenshot process")  # Debug print
-        screen = QApplication.primaryScreen()
-        screenshot = screen.grabWindow(0)
+        print("Starting delayed screenshot process")
+        
+        # Start with the screen containing the cursor
+        cursor_pos = QCursor.pos()
+        current_screen = None
+        for screen in QApplication.screens():
+            if screen.geometry().contains(cursor_pos):
+                current_screen = screen
+                break
+        
+        if not current_screen:
+            current_screen = QApplication.primaryScreen()
+        
+        # Take initial screenshot of current screen
+        screen_geometry = current_screen.geometry()
+        screenshot = current_screen.grabWindow(
+            0,
+            0,  # Use local coordinates
+            0,
+            screen_geometry.width(),
+            screen_geometry.height()
+        )
+        
         self.screenshot_selector = ScreenshotSelector(screenshot)
         self.screenshot_selector.screenshot_taken.connect(self.handle_screenshot)
+        self.screenshot_selector.setGeometry(screen_geometry)
         self.screenshot_selector.showFullScreen()
 
-        # Start a timer to check if the screenshot selector has been closed
         self.check_screenshot_timer = QTimer(self)
         self.check_screenshot_timer.timeout.connect(self._check_screenshot_selector)
-        self.check_screenshot_timer.start(100)  # Check every 100 ms
+        self.check_screenshot_timer.start(100)
 
     def _check_screenshot_selector(self):
         if not self.screenshot_selector.isVisible():
@@ -1475,8 +1496,10 @@ class OllamaChat(QWidget):
                 self.message_history[update_index]["content"] = self.current_response
                 self.rebuild_chat_content()
             else:
+                # Get the current model being used
+                current_model = self.active_model or self.default_model
                 # Update last message for new responses
-                self.update_last_message(self.current_response_model, self.current_response)
+                self.update_last_message(current_model, self.current_response)
 
         # Trigger smooth scroll after updating the content
         self.chat_display.page().runJavaScript("smoothScrollToBottom();")
@@ -1491,11 +1514,14 @@ class OllamaChat(QWidget):
         if not self.current_response:
             self.current_response = "No response received from Ollama."
 
+        # Get the current model being used
+        current_model = self.active_model or self.default_model            
+
         if update_index is not None:
             # Update regenerated message
             self.message_history[update_index].update({
                 "content": self.current_response,
-                "model": self.current_response_model
+                "model": current_model
             })
             self.rebuild_chat_content()
         else:
@@ -1503,7 +1529,7 @@ class OllamaChat(QWidget):
             self.message_history.append({
                 "role": "assistant",
                 "content": self.current_response,
-                "model": self.current_response_model
+                "model": current_model
             })
             # No need to call add_message_to_chat since rebuild_chat_content will handle it
             self.rebuild_chat_content()
