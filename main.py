@@ -62,6 +62,8 @@ from PyQt6.QtGui import (
     QImage,
     QColor,
     QPixmap,
+    QKeySequence,
+    QDropEvent,
 )
 
 from datetime import datetime
@@ -93,6 +95,29 @@ class Bridge(QObject):
         print("editMessage", index)
         self.chat_window.edit_message(index)
 
+class ImageDropTextEdit(QTextEdit):
+    def __init__(self, parent=None, chat_instance=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+        self.chat_instance = chat_instance  # Store a reference to the chat instance
+
+    def dropEvent(self, event: QDropEvent):
+        mime_data = event.mimeData()
+        if mime_data.hasUrls():
+            for url in mime_data.urls():
+                file_path = url.toLocalFile()
+                if file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+                    image = QImage(file_path)
+                    if not image.isNull() and self.chat_instance:
+                        self.chat_instance.handle_pasted_image(image)
+            event.acceptProposedAction()
+        elif mime_data.hasImage():
+            image = QImage(mime_data.imageData())
+            if self.chat_instance:
+                self.chat_instance.handle_pasted_image(image)
+            event.acceptProposedAction()
+        else:
+            super().dropEvent(event)
 
 class OllamaChat(QWidget):
     def __init__(self, parent=None):
@@ -100,8 +125,8 @@ class OllamaChat(QWidget):
         screen = QApplication.primaryScreen().availableGeometry()
 
         # Add thumbnail size constants
-        self.THUMBNAIL_SIZE = 64  # Main container size
-        self.THUMBNAIL_INNER_SIZE = 56  # Actual thumbnail size
+        self.THUMBNAIL_SIZE = 42  # Main container size
+        self.THUMBNAIL_INNER_SIZE = 26  # Actual thumbnail size
         self.THUMBNAIL_BTN_SIZE = 16  # Delete button size
         self.THUMBNAIL_BTN_MARGIN = 0  # Button margin from top-right
 
@@ -158,15 +183,13 @@ class OllamaChat(QWidget):
         self.active_model = None  # Add this line to track the currently active model
         self.vision_capable_models = set()  # Store models with vision capability
         
-        # Create the input field before initUI
-        self.input_field = QTextEdit()
+        # Use the custom ImageDropTextEdit
+        self.input_field = ImageDropTextEdit(self, chat_instance=self)
         self.input_field.setPlaceholderText("Type your message...")
         self.input_field.setFixedHeight(50)
         self.input_field.setAcceptRichText(False)  # Only allow plain text
-        self.input_field.textChanged.connect(
-            self.adjust_input_height
-        )  # Add height adjustment
         self.input_field.installEventFilter(self)
+        self.input_field.textChanged.connect(self.adjust_input_height)
 
         self.initUI()  # Initialize UI components after input_field is created
         self.load_settings()
@@ -1979,6 +2002,16 @@ class OllamaChat(QWidget):
                         self.suggestion_list.hide()
                         return True
 
+                # Handle Image paste
+                if event.matches(QKeySequence.StandardKey.Paste):
+                    clipboard = QApplication.clipboard()
+                    mime_data = clipboard.mimeData()
+                    
+                    if mime_data.hasImage():
+                        image = QImage(mime_data.imageData())
+                        self.handle_pasted_image(image)
+                        return True        
+
                 # Handle Ctrl+Up and Ctrl+Down for message editing
                 if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
                     if event.key() == Qt.Key.Key_Up:
@@ -2002,8 +2035,31 @@ class OllamaChat(QWidget):
             if event.type() == QEvent.Type.MouseButtonDblClick:
                 if event.button() == Qt.MouseButton.LeftButton:
                     self.restore_size()
-                    return True
+                    return True            
+        
         return super().eventFilter(obj, event)
+
+    def handle_pasted_image(self, image):
+        """Process and add a pasted or dropped image."""
+        if len(self.selected_screenshots) >= self.MAX_SCREENSHOTS:
+            self.show_error_message("Maximum Screenshots", 
+                                  f"Maximum of {self.MAX_SCREENSHOTS} screenshots allowed.")
+            return
+
+        # Process the image using the same function as screenshots
+        processed_image = process_image(image)
+        self.selected_screenshots.append(processed_image)
+        
+        # Update thumbnails
+        self.update_thumbnails()
+        
+        # Update placeholder text
+        self.input_field.setPlaceholderText("Image added. Type your message...")
+        
+        # Force focus back to input field
+        self.input_field.setFocus(Qt.FocusReason.OtherFocusReason)
+        self.activateWindow()
+    
 
     def restore_size(self):
         """Restore the window to its original size based on expansion state."""
