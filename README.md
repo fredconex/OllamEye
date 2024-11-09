@@ -3,7 +3,7 @@
 # PixelLlama!  
 
 A minimalist client solution for Ollama written in python with ability to capture screen to use with vision models.
-- Screenshot capturing
+- Screenshot capturing with multi-monitor support
 - Markdown / Code blocks support
 - Easy tagging for models that are vision enabled
 - 3 display modes (Collapsed, Minimal and Expanded)
