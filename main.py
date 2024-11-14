@@ -155,10 +155,10 @@ class OllamaChat(QWidget):
         self.model_check_timer.start(1000)  # Check every second
 
         # Store original sizes
-        self.original_compact_size = QSize(400, 800)  # Add this line
+        self.original_compact_size = QSize(400, 800)  
         self.original_expanded_size = QSize(
-            int(screen.width() * 0.5), int(screen.height() * 0.75)
-        )  # Add this line
+            int(screen.width() * 0.5), int(screen.height() * 0.75)  
+        )
 
         # Current sizes can change when user resizes the window
         self.compact_size = QSize(400, 800)
@@ -181,7 +181,7 @@ class OllamaChat(QWidget):
         self.model_names = []
         self.default_model = []
         self.selected_model = None
-        self.active_model = None  # Add this line to track the currently active model
+        self.active_model = None 
         self.vision_capable_models = set()  # Store models with vision capability
         
         # Use the custom ImageDropTextEdit
@@ -204,7 +204,7 @@ class OllamaChat(QWidget):
         self.dragging = False
         self.drag_start_position = None
 
-        self.suggestion_list = QListWidget(self)  # Add this line
+        self.suggestion_list = QListWidget(self)  
         self.suggestion_list.setWindowFlags(
             Qt.WindowType.FramelessWindowHint | Qt.WindowType.ToolTip
         )
@@ -233,6 +233,8 @@ class OllamaChat(QWidget):
             container = self.create_thumbnail_container()
             self.thumbnail_containers.append(container)
             container.hide()
+
+        self.load_chat_history()
 
     def create_thumbnail_container(self):
         """Create a new thumbnail container with label and delete button."""
@@ -643,7 +645,7 @@ class OllamaChat(QWidget):
 
         # Set layout for self
         self.setLayout(main_layout)
-        self.update_input_position()  # Add this line
+        self.update_input_position()  
 
         # Ensure the vertical button is created after the main layout
         self.add_vertical_button()
@@ -1593,14 +1595,18 @@ class OllamaChat(QWidget):
             self.update_chat_display()
 
     def clear_chat(self):
-        self.chat_content.clear()
-        self.message_history.clear()
-        self.edit_index = None
+        """Clear the chat history and saved file."""
+        self.message_history = []
+        self.chat_content = []
         self.update_chat_display()
-        self.input_field.clear()
-        self.selected_screenshot = None
-        self.screenshot_btn.setStyleSheet(self.original_button_style)
-        self.active_model = None  # Reset the active model when clearing chat
+        
+        # Clear saved chat file
+        chat_file = os.path.join(os.path.expanduser("~"), ".pixelllama", "chat_history.json")
+        if os.path.exists(chat_file):
+            try:
+                os.remove(chat_file)
+            except Exception as e:
+                print(f"Error removing chat history file: {e}")
 
     def position_window(self):
         screen = QApplication.primaryScreen().availableGeometry()
@@ -1645,7 +1651,7 @@ class OllamaChat(QWidget):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.update_input_position()
-        self.update_vertical_button_position()  # Add this line
+        self.update_vertical_button_position()  
 
     def update_input_position(self):
         # Remove the button positioning code since it's handled by the layout
@@ -1690,6 +1696,7 @@ class OllamaChat(QWidget):
         self.send_btn.setObjectName("sendButton")
 
     def initialize_chat_display(self):
+        """Initialize the chat display with the HTML template."""
         html_path = os.path.join(os.path.dirname(__file__), "html/chat_template.html")
         with open(html_path, "r") as file:
             initial_html = file.read()
@@ -1703,10 +1710,43 @@ class OllamaChat(QWidget):
         # Replace the placeholder with the base64-encoded image
         initial_html = initial_html.replace("{{APP_ICON_BASE64}}", icon_base64)
 
+        # Load the HTML and wait for it to finish before updating chat content
+        self.chat_display.loadFinished.connect(self._on_chat_display_loaded)
         self.chat_display.setHtml(initial_html)
 
+    def _on_chat_display_loaded(self, ok):
+        """Called when the chat display HTML has finished loading."""
+        if ok:
+            # Set up the JavaScript bridge
+            js = """
+            new QWebChannel(qt.webChannelTransport, function(channel) {
+                window.bridge = channel.objects.bridge;
+                window.qt_bridge = {
+                    regenerateMessage: function(index) {
+                        if (window.bridge) {
+                            window.bridge.regenerateMessage(index);
+                        } else {
+                            console.error('Bridge not initialized');
+                        }
+                    },
+                    editMessage: function(index) {
+                        if (window.bridge) {
+                            window.bridge.editMessage(index);
+                        } else {
+                            console.error('Bridge not initialized');
+                        }
+                    }
+                };
+            });
+            """
+            self.chat_display.page().runJavaScript(js)
+            
+            # Update the chat display with any existing content
+            self.update_chat_display()
+
     def terminate_application(self):
-        self.tray_icon.hide()
+        """Save chat history and terminate the application."""
+        self.save_chat_history()  
         QApplication.quit()
 
     def create_tray_icon(self):
@@ -2323,6 +2363,62 @@ class OllamaChat(QWidget):
         self.setGeometry(new_x, new_y, 
                         current_geometry.width(), 
                         current_geometry.height())
+
+    def save_chat_history(self):
+        """Save the current chat history to a file."""
+        chat_dir = os.path.join(os.path.expanduser("~"), ".pixelllama")
+        if not os.path.exists(chat_dir):
+            os.makedirs(chat_dir)
+            
+        chat_file = os.path.join(chat_dir, "chat_history.json")
+        
+        # Prepare chat data for saving
+        chat_data = {
+            "messages": self.message_history,
+            "chat_content": self.chat_content,
+            "active_model": self.active_model
+        }
+        
+        try:
+            with open(chat_file, "w", encoding="utf-8") as f:
+                json.dump(chat_data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"Error saving chat history: {e}")
+
+    def load_chat_history(self):
+        """Load chat history from file."""
+        chat_file = os.path.join(os.path.expanduser("~"), ".pixelllama", "chat_history.json")
+        
+        if not os.path.exists(chat_file):
+            return
+            
+        try:
+            with open(chat_file, "r", encoding="utf-8") as f:
+                chat_data = json.load(f)
+                
+            self.message_history = chat_data.get("messages", [])
+            self.chat_content = chat_data.get("chat_content", [])
+            saved_model = chat_data.get("active_model")
+            
+            if saved_model:
+                self.active_model = saved_model
+                
+            # Instead of calling update_chat_display directly, we'll let the 
+            # initialize_chat_display handle it through the loadFinished signal
+            if hasattr(self, 'chat_display') and self.chat_display.page().isLoading():
+                # If the page is still loading, the _on_chat_display_loaded will handle the update
+                pass
+            else:
+                # If the page is already loaded, update directly
+                self.update_chat_display()
+                
+        except Exception as e:
+            print(f"Error loading chat history: {e}")
+
+    def hideEvent(self, event):
+        """Save chat history when hiding the window."""
+        self.save_chat_history()
+        super().hideEvent(event)
 
 
 if __name__ == "__main__":
