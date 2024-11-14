@@ -347,7 +347,16 @@ class OllamaChat(QWidget):
         # Header
         header = QHBoxLayout()
         header.addStretch(1)
-
+        
+        # Add monitor switch button
+        self.monitor_btn = QPushButton()
+        self.monitor_btn.setIcon(QIcon("icons/monitor.png"))
+        self.monitor_btn.setFixedSize(26, 26)
+        self.monitor_btn.setToolTip("Switch Monitor")
+        self.monitor_btn.setObjectName("monitorButton")
+        self.monitor_btn.clicked.connect(self.switch_monitor)
+        header.addWidget(self.monitor_btn)
+        
         # Add clear button with icon
         self.clear_btn = QPushButton()
         self.clear_btn.setIcon(QIcon.fromTheme("edit-delete"))  # Use 'edit-delete' icon
@@ -374,6 +383,8 @@ class OllamaChat(QWidget):
         self.close_btn.setObjectName("closeButton")
         self.close_btn.clicked.connect(self.handle_close_button_click)
         header.addWidget(self.close_btn)
+
+        
 
         widget_layout.addLayout(header)
 
@@ -1593,7 +1604,7 @@ class OllamaChat(QWidget):
 
     def position_window(self):
         screen = QApplication.primaryScreen().availableGeometry()
-        padding = 20  # Adjust this value to change the padding
+        padding = 2  # Adjust this value to change the padding
         self.setGeometry(
             screen.width() - self.compact_size.width() - padding,
             screen.height() - self.compact_size.height() - padding,
@@ -1805,7 +1816,20 @@ class OllamaChat(QWidget):
         self.vertical_button.raise_()  # Ensure the button is on top
 
     def toggle_sidebar(self):
-        screen = QApplication.primaryScreen().availableGeometry()
+        # Get the current screen's geometry
+        current_pos = self.geometry().center()
+        current_screen = None
+        
+        # Find the current screen
+        for screen in QApplication.screens():
+            if screen.geometry().contains(current_pos):
+                current_screen = screen
+                break
+        
+        if not current_screen:
+            current_screen = QApplication.primaryScreen()
+        
+        screen = current_screen.availableGeometry()
 
         if (
             self.animation
@@ -1826,11 +1850,8 @@ class OllamaChat(QWidget):
             collapsed_width = self.vertical_button.width() + 4
             collapsed_height = 96  # Reduced height when collapsed
 
-            # Calculate new position to center vertically
-            new_y = (
-                current_geometry.y()
-                + (current_geometry.height() - collapsed_height) // 2
-            )
+            # Calculate new position to center vertically on the current screen
+            new_y = screen.y() + (screen.height() - collapsed_height) // 2
             new_x = int(screen.right() - collapsed_width * 0.75)
 
             new_rect = QRect(new_x, new_y, collapsed_width, collapsed_height)
@@ -1847,6 +1868,7 @@ class OllamaChat(QWidget):
             self.settings_btn.hide()
             self.close_btn.hide()
             self.toggle_btn.hide()
+            self.monitor_btn.hide()
         else:
             self.setMinimumSize(300, 400)
             # Expand the sidebar - restore previous size and position
@@ -1864,7 +1886,8 @@ class OllamaChat(QWidget):
             self.settings_btn.show()
             self.close_btn.show()
             self.toggle_btn.show()
-
+            self.monitor_btn.show()
+            
         self.animation.finished.connect(self.update_vertical_button_position)
         self.animation.start()
 
@@ -2265,6 +2288,41 @@ class OllamaChat(QWidget):
                 self.chat_content.insert(0, ("System", message, ""))
 
         self.update_chat_display()
+
+    def switch_monitor(self):
+        """Switch the window to the next available monitor and align to bottom-right corner."""
+        screens = QApplication.screens()
+        if len(screens) <= 1:
+            return  # No other monitors to switch to
+            
+        # Find current screen
+        current_pos = self.geometry().center()
+        current_screen_index = -1
+        
+        for i, screen in enumerate(screens):
+            if screen.geometry().contains(current_pos):
+                current_screen_index = i
+                break
+    
+        # Switch to next screen (or first if we're on the last)
+        next_screen_index = (current_screen_index + 1) % len(screens)
+        next_screen = screens[next_screen_index]
+        
+        # Get current window geometry and available screen geometry
+        current_geometry = self.geometry()
+        available_geometry = next_screen.availableGeometry()
+        
+        # Add padding from the edges
+        padding = 2
+        
+        # Calculate new position (bottom-right corner of target screen)
+        new_x = available_geometry.right() - current_geometry.width() - padding
+        new_y = available_geometry.bottom() - current_geometry.height() - padding
+        
+        # Move window to new position
+        self.setGeometry(new_x, new_y, 
+                        current_geometry.width(), 
+                        current_geometry.height())
 
 
 if __name__ == "__main__":
