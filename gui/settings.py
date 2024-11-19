@@ -76,6 +76,7 @@ class SettingsPage(QWidget):
         self.temperature = self.settings.get("temperature")
         self.context_size = self.settings.get("context_size")
         self.vision_capable_models = set(self.settings.get("vision_capable_models", []))
+        self.theme = self.settings.get("theme", "dark")
         self.model_names = []
 
         self.setWindowTitle("Settings")
@@ -105,6 +106,7 @@ class SettingsPage(QWidget):
         # Theme selection combo box
         self.theme_label = QLabel("Theme:")
         self.theme_combo = QComboBox()
+        self.theme_combo.currentTextChanged.connect(self.theme_combo_changed)
         self.theme_combo.setMinimumWidth(32)
         self.theme_combo.wheelEvent = lambda event: event.ignore() 
         
@@ -336,6 +338,8 @@ class SettingsPage(QWidget):
         self.system_prompt = self.settings.get("system_prompt")
         self.ollama_url = self.settings.get("ollama_url")
         self.vision_capable_models = set(self.settings.get("vision_capable_models", []))
+
+        self.theme_combo.setCurrentText(self.settings.get("theme", "dark"))
         
         # Update UI elements
         self.temperature_input.setText(str(self.temperature) if self.temperature is not None else "")
@@ -393,7 +397,18 @@ class SettingsPage(QWidget):
         })
 
         # Force theme update
+        self.current_theme = self.theme_combo.currentText()
+        self.update_theme(self.current_theme)
+        
+        
+        self.load_settings()
+        self.chat_instance.toggle_settings()
+    
+    def theme_combo_changed(self):
         theme_name = self.theme_combo.currentText()
+        self.update_theme(theme_name)
+
+    def update_theme(self, theme_name):
         theme_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "themes", f"{theme_name}.qss")
         if os.path.exists(theme_path):
             with open(theme_path, "r") as f:
@@ -413,9 +428,6 @@ class SettingsPage(QWidget):
                     child.update()
 
         self.chat_instance.chat_box.update_webview_colors()
-        
-        self.load_settings()
-        self.chat_instance.toggle_settings()
 
     def reload_models(self):
         """Reload the model list"""
@@ -599,6 +611,13 @@ class SettingsPage(QWidget):
         # Close prompt browser if it's open
         if hasattr(self, 'prompt_overlay'):
             self.hide_prompt_selector()
+
+        theme = self.settings.get("theme", "dark")
+        if theme != self.theme_combo.currentText():
+            self.update_theme(theme)
+            print(f"Updated theme to {theme}")
+
+        load_svg_button_icon(self.chat_instance.settings_btn, ".\\icons\\settings.svg")
         self.hide()
 
     def hide(self):
