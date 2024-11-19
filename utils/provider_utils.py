@@ -1,11 +1,13 @@
 from typing import Tuple
 import requests
 import json
+import sys
 from datetime import datetime
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QImage
 from utils.settings_manager import get_ollama_url, get_system_prompt, get_openai_key, get_openai_url, get_provider
 
+DEBUG = "-debug" in sys.argv
 
 class ProviderRequest(QThread):
     response_chunk_ready = pyqtSignal(str, str)
@@ -255,22 +257,8 @@ class ProviderRequest(QThread):
         else:
             raise ValueError("Input must be a QImage")
 
-
-# Add a new class for provider signals
-class ProviderSignals(QObject):
-    provider_changed = pyqtSignal()
-
-# Create a global instance
-provider_signals = ProviderSignals()
-
-
 def check_provider_status() -> Tuple[bool, str]:
-    """
-    Check if the selected provider (Ollama or OpenAI) is online.
-    
-    Returns:
-        Tuple of (is_online: bool, provider: str)
-    """
+    """Check if the selected provider (Ollama or OpenAI) is online."""
     provider = get_provider()
     is_online = False
 
@@ -296,7 +284,7 @@ def check_provider_status() -> Tuple[bool, str]:
                             "Authorization": f"Bearer {openai_api_key}",
                             "Content-Type": "application/json"
                         },
-                        timeout=0.1
+                        timeout=0.5
                     )
                     is_online = (response.status_code == 200)
                 except (requests.ConnectionError, requests.Timeout):
@@ -314,7 +302,8 @@ def request_models(provider=None):
         provider = get_provider()
     
     # Add debug print
-    print(f"Requesting models for provider: {provider}")
+    if DEBUG:
+        print(f"Requesting models for provider: {provider}")
     
     if provider == "ollama":
         try:
@@ -326,7 +315,7 @@ def request_models(provider=None):
                 
             response = requests.get(
                 f"{ollama_url}/api/tags",
-                timeout=1.0,
+                timeout=0.5,
                 headers={
                     "Connection": "close",
                     "Accept": "application/json",
@@ -344,10 +333,10 @@ def request_models(provider=None):
             
         except requests.Timeout:
             print("Timeout loading models")
-            return ["Timeout loading models"]
+            return ["Error loading models"]
         except requests.ConnectionError:
             print("Connection error loading models")
-            return ["Cannot connect to Ollama"]
+            return ["Error loading models"]
         except Exception as e:
             print(f"Error loading models: {e}")
             return ["Error loading models"]
@@ -370,7 +359,7 @@ def request_models(provider=None):
             response = requests.get(
                 f"{api_url}/models",
                 headers=headers,
-                timeout=1.0
+                timeout=0.5
             )
 
             response.raise_for_status()
@@ -379,7 +368,9 @@ def request_models(provider=None):
             models = response.json().get("data", [])      
             chat_models = [model["id"] for model in models]
 
-            print(models)  # Debug print
+            if DEBUG:   
+                print(models)  # Debug print
+                
             return sorted(chat_models) if chat_models else ["No compatible models found"]
                 
         except requests.ConnectionError:
