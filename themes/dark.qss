@@ -363,6 +363,25 @@ QLabel#VersionLabel {
     margin: 0;
 }
 
+#modelDefaultButton {
+    background-color: transparent;
+    border: none;
+    padding: 2px;
+    border-radius: 4px;
+}
+
+#modelDefaultButton:hover {
+    background-color: #404040;
+}
+
+#modelDefaultButton[selected="true"] {
+    background-color: #7289DA;
+}
+
+#modelDefaultButton[selected="true"]:hover {
+    background-color: #8599E1;
+}
+
 QPushButton#settingsButton {
     --icon-color: #D4D4D4;
 }
