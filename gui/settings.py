@@ -194,7 +194,7 @@ class SettingsPage(QWidget):
 
         # Model list
         self.model_list = QListWidget()
-        self.model_list.setMinimumHeight(200)
+        self.model_list.setMinimumHeight(100)
         self.model_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.model_list.setObjectName("modelList")
         scroll_layout.addWidget(self.model_list)
@@ -360,7 +360,7 @@ class SettingsPage(QWidget):
             "temperature": self.temperature,
             "context_size": self.context_size,
             "system_prompt": self.system_prompt,
-            "vision_capable_models": list(self.vision_capable_models),
+            "vision_capable_models": sorted(list(self.vision_capable_models)),
         })
 
         # Force theme update
