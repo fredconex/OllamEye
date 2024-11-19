@@ -386,11 +386,11 @@
         function updateProviderStatus(providerStatus) {
             const statusMessage = document.getElementById('status-message');
             if (providerStatus.online) {
-                statusMessage.textContent = 'Your visual assistant is ready to help. Start a conversation!';
+                statusMessage.textContent = 'Provider is online. Start a conversation!';
                 statusMessage.style.color = '#888';  // Original color
             } else {
                 provider = providerStatus.provider.charAt(0).toUpperCase() + providerStatus.provider.slice(1);
-                statusMessage.textContent = `" ${provider} " is currently offline.`;
+                statusMessage.textContent = `Provider is offline, waiting...`;
                 statusMessage.style.color = '#ff4444';  // Red color for offline status
             }
         }
