@@ -383,13 +383,14 @@
         }
 
         // Add this new function
-        function updateProviderStatus(isOnline) {
+        function updateProviderStatus(providerStatus) {
             const statusMessage = document.getElementById('status-message');
-            if (isOnline) {
+            if (providerStatus.online) {
                 statusMessage.textContent = 'Your visual assistant is ready to help. Start a conversation!';
                 statusMessage.style.color = '#888';  // Original color
             } else {
-                statusMessage.textContent = 'Ollama is currently offline. Please start the Ollama service.';
+                provider = providerStatus.provider.charAt(0).toUpperCase() + providerStatus.provider.slice(1);
+                statusMessage.textContent = `" ${provider} " is currently offline.`;
                 statusMessage.style.color = '#ff4444';  // Red color for offline status
             }
         }
