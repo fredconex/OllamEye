@@ -187,10 +187,26 @@ class SettingsPage(QWidget):
         scroll_layout.addWidget(self.model_label)
 
         # Add search bar for models
+        # Create container for search and reload button
+        search_container = QWidget()
+        search_layout = QHBoxLayout(search_container)
+        search_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Add model search
         self.model_search = QLineEdit()
         self.model_search.setPlaceholderText("Search models...")
         self.model_search.textChanged.connect(self.filter_models)
-        scroll_layout.addWidget(self.model_search)
+        search_layout.addWidget(self.model_search)
+
+        # Add model list reload button
+        self.model_reload_button = QPushButton()
+        self.model_reload_button.setFixedSize(30, 30)
+        self.model_reload_button.clicked.connect(self.load_models)
+        self.model_reload_button.setStyleSheet(self.styleSheet())
+        load_svg_button_icon(self.model_reload_button, ".\\icons\\refresh.svg")
+        search_layout.addWidget(self.model_reload_button)
+
+        scroll_layout.addWidget(search_container)
 
         # Model list
         self.model_list = QListWidget()
