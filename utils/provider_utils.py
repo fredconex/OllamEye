@@ -279,16 +279,33 @@ def check_provider_status() -> Tuple[bool, str]:
             # Check Ollama status
             ollama_url = get_ollama_url()
             if ollama_url:
-                response = requests.get(f"{ollama_url}/api/tags", timeout=0.01)
-                is_online = response.status_code == 200
+                try:
+                    response = requests.get(f"{ollama_url}/api/tags", timeout=0.1)
+                    is_online = (response.status_code == 200)
+                except (requests.ConnectionError, requests.Timeout):
+                    is_online = False
         elif provider == "openai":
-            # Check OpenAI status - verify API key exists
+            # Check OpenAI status by making a test API call
             openai_api_key = get_openai_key()
-            is_online = bool(openai_api_key and openai_api_key.strip())
+            openai_url = get_openai_url()
+            if openai_api_key and openai_url:
+                try:
+                    response = requests.get(
+                        f"{openai_url}/models",
+                        headers={
+                            "Authorization": f"Bearer {openai_api_key}",
+                            "Content-Type": "application/json"
+                        },
+                        timeout=0.1
+                    )
+                    is_online = (response.status_code == 200)
+                except (requests.ConnectionError, requests.Timeout):
+                    is_online = False
         
         return is_online, provider
 
-    except Exception:
+    except Exception as e:
+        print(f"Error checking provider status: {e}")  # Add logging
         return False, provider
 
 def request_models(provider=None):
@@ -309,7 +326,7 @@ def request_models(provider=None):
                 
             response = requests.get(
                 f"{ollama_url}/api/tags",
-                timeout=0.1,  # 100ms timeout
+                timeout=1.0,
                 headers={
                     "Connection": "close",
                     "Accept": "application/json",
@@ -352,7 +369,8 @@ def request_models(provider=None):
             
             response = requests.get(
                 f"{api_url}/models",
-                headers=headers
+                headers=headers,
+                timeout=1.0
             )
 
             response.raise_for_status()
