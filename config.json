@@ -1,8 +1,11 @@
 {
+    "theme": "dark",
     "provider": "openai",
     "openai_url": "http://localhost:1234/v1",
     "openai_key": "lm-studio",
+    "openai_default_model": "minicpm-v-2_6",
     "ollama_url": "http://localhost:11434",
+    "ollama_default_model": "minicpm-v:8b",
     "temperature": null,
     "context_size": null,
     "system_prompt": "You're a helpful assistant.",
@@ -19,8 +22,5 @@
         "You're a helpful assistant.",
         "You're an FreePascal assisstant, use ObjFPC dialect and modern Pascal as reference.",
         "You're a pirate! answer with Rar!"
-    ],
-    "openai_default_model": "minicpm-v-2_6",
-    "ollama_default_model": "minicpm-v:8b",
-    "theme": "dark"
+    ]
 }
