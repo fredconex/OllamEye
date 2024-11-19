@@ -119,17 +119,17 @@ class PixelChat(QWidget):
         # Add provider status check timer
         self.provider_check_timer = QTimer(self)
         self.provider_check_timer.timeout.connect(self.chat_box.check_provider_status)
-        self.provider_check_timer.start(1000)  # Check every 5 seconds
+        self.provider_check_timer.start(1000) # 1 second for the initial check
         self.provider_online = False
         self.provider_status_displayed = False
 
-        # Add these new attributes for multiple screenshots
-        self.selected_screenshots = []  # List to store multiple screenshots
-        self.MAX_SCREENSHOTS = 3  # Maximum number of allowed screenshots
+        # Add these new attributes for multiple images
+        self.prompt_images = []  # List to store multiple images
+        self.MAX_IMAGES = 3  # Maximum number of allowed images
         self.thumbnail_containers = []  # List to store thumbnail containers
 
         # Create thumbnail containers
-        for i in range(self.MAX_SCREENSHOTS):
+        for i in range(self.MAX_IMAGES):
             container = self.create_thumbnail_container()
             self.thumbnail_containers.append(container)
             container.hide()
@@ -347,7 +347,7 @@ class PixelChat(QWidget):
         self.screenshot_btn = QPushButton()
         self.screenshot_btn.setFixedSize(30, 30)
         self.screenshot_btn.setToolTip("Take Screenshot")
-        self.screenshot_btn.clicked.connect(self.toggle_screenshot)
+        self.screenshot_btn.clicked.connect(self.take_screenshot)
         self.screenshot_btn.setStyleSheet(self.styleSheet())
         load_svg_button_icon(self.screenshot_btn, ".\\icons\\camera.svg")
         self.original_button_style = self.screenshot_btn.styleSheet()
@@ -482,8 +482,8 @@ class PixelChat(QWidget):
         """Handle sending a message."""
         message = self.input_field.toPlainText().strip()
         
-        # Don't send if there's no message and no screenshots
-        if not message and not self.selected_screenshots:
+        # Don't send if there's no message and no images
+        if not message and not self.prompt_images:
             return
 
         # Extract model if message starts with @
@@ -507,13 +507,13 @@ class PixelChat(QWidget):
         if message:
             content.append({"type": "text", "text": message})
         
-        # Add screenshots if any
-        if self.selected_screenshots:
-            for screenshot in self.selected_screenshots:
+        # Add images if any
+        if self.prompt_images:
+            for image in self.prompt_images:
                 byte_array = QByteArray()
                 buffer = QBuffer(byte_array)
                 buffer.open(QIODevice.OpenModeFlag.WriteOnly)
-                screenshot.save(buffer, "PNG")
+                image.save(buffer, "PNG")
                 image_base64 = byte_array.toBase64().data().decode()
                 content.append({
                     "type": "image",
@@ -523,20 +523,14 @@ class PixelChat(QWidget):
         # Send to chat box with the specified model
         self.chat_box.send_message(content, model_to_use)
 
-        # Clear input and screenshots
+        # Clear input and images
         self.reset_input_area()
 
         # Return focus to input field
         QTimer.singleShot(100, lambda: self.input_field.setFocus(Qt.FocusReason.OtherFocusReason))
         QTimer.singleShot(100, self.activateWindow)
 
-    def toggle_screenshot(self):
-        if self.selected_screenshot:
-            self.remove_screenshot()
-        else:
-            self.take_screenshot()
-
-    def remove_screenshot(self):
+    def remove_image(self):
         self.selected_screenshot = None
         self.thumbnail_container.hide()
         self.screenshot_btn.setStyleSheet("")
@@ -587,14 +581,14 @@ class PixelChat(QWidget):
 
     def handle_screenshot(self, screenshot):
         """Handle new screenshot addition."""
-        if len(self.selected_screenshots) >= self.MAX_SCREENSHOTS:
+        if len(self.prompt_images) >= self.MAX_IMAGES:
             self.show_error_message("Maximum Screenshots", 
-                                  f"Maximum of {self.MAX_SCREENSHOTS} screenshots allowed.")
+                                  f"Maximum of {self.MAX_IMAGES} screenshots allowed.")
             return
 
         # Process the screenshot
         processed_screenshot = process_image(screenshot)
-        self.selected_screenshots.append(processed_screenshot)
+        self.prompt_images.append(processed_screenshot)
         
         # Update thumbnails
         self.update_thumbnails()
@@ -605,13 +599,13 @@ class PixelChat(QWidget):
     def update_thumbnails(self):
         """Update all thumbnail displays."""
         for i, container in enumerate(self.thumbnail_containers):
-            if i < len(self.selected_screenshots):
+            if i < len(self.prompt_images):
                 # Show and update container
-                self.update_single_thumbnail(container, self.selected_screenshots[i], i)
+                self.update_single_thumbnail(container, self.prompt_images[i], i)
                 container.show()
                 # Connect delete button if not already connected
                 if not container.delete_btn.receivers(container.delete_btn.clicked):
-                    container.delete_btn.clicked.connect(lambda checked, idx=i: self.remove_screenshot(idx))
+                    container.delete_btn.clicked.connect(lambda checked, idx=i: self.remove_image(idx))
             else:
                 container.hide()
 
@@ -642,14 +636,13 @@ class PixelChat(QWidget):
         
         container.thumbnail_label.setPixmap(display_pixmap)
 
-    def remove_screenshot(self, index):
-        """Remove screenshot at specified index."""
-        if 0 <= index < len(self.selected_screenshots):
-            del self.selected_screenshots[index]
+    def remove_image(self, index):
+        """Remove image at specified index."""
+        if 0 <= index < len(self.prompt_images):
+            del self.prompt_images[index]
             self.update_thumbnails()
 
-        if not self.selected_screenshots:
-            self.screenshot_btn.setStyleSheet("")
+        if not self.prompt_images:
             self.input_field.setPlaceholderText("Type your message...")
 
     def update_input_layout(self):
@@ -660,7 +653,7 @@ class PixelChat(QWidget):
 
         # Add visible thumbnails back to layout
         for i, container in enumerate(self.thumbnail_containers):
-            if i < len(self.selected_screenshots):
+            if i < len(self.prompt_images):
                 self.input_layout.insertWidget(2 + i, container)
 
     def _post_screenshot_actions(self):
@@ -716,15 +709,13 @@ class PixelChat(QWidget):
         self.update_vertical_button_position() 
 
     def reset_input_area(self):
-        """Reset input area by clearing text and removing all screenshots."""
+        """Reset input area by clearing text and removing all images."""
         self.input_field.clear()
-        # Clear all screenshots
-        self.selected_screenshots.clear()
+        # Clear all images
+        self.prompt_images.clear()
         # Hide all thumbnail containers
         for container in self.thumbnail_containers:
             container.hide()
-        # Reset screenshot button style
-        self.screenshot_btn.setStyleSheet("")
         # Reset placeholder text
         self.input_field.setPlaceholderText("Type your message...")
 
@@ -948,14 +939,14 @@ class PixelChat(QWidget):
 
     def handle_pasted_image(self, image):
         """Process and add a pasted or dropped image."""
-        if len(self.selected_screenshots) >= self.MAX_SCREENSHOTS:
-            self.show_error_message("Maximum Screenshots", 
-                                  f"Maximum of {self.MAX_SCREENSHOTS} screenshots allowed.")
+        if len(self.prompt_images) >= self.MAX_IMAGES:
+            self.show_error_message("Maximum Images", 
+                                  f"Maximum of {self.MAX_IMAGES} images allowed.")
             return
 
-        # Process the image using the same function as screenshots
+        # Process the image using the same function as images
         processed_image = process_image(image)
-        self.selected_screenshots.append(processed_image)
+        self.prompt_images.append(processed_image)
         
         # Update thumbnails
         self.update_thumbnails()
