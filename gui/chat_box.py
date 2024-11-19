@@ -2,7 +2,7 @@ import uuid
 from PyQt6.QtWidgets import QWidget, QVBoxLayout
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
-from PyQt6.QtCore import QObject, pyqtSlot, QTimer, QByteArray, QBuffer, QIODevice
+from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QTimer, QByteArray, QBuffer, QIODevice, QThread
 from PyQt6.QtGui import QImage, QIcon
 import os
 import json
@@ -266,6 +266,13 @@ class Bridge(QObject):
     def editMessage(self, message_id):
         print("editMessage", message_id)
         self.parent_chat.messages[message_id].start_edit()
+
+class ProviderStatusThread(QThread):
+    status_changed = pyqtSignal(bool, str)
+    
+    def run(self):
+        is_online, provider = check_provider_status()
+        self.status_changed.emit(is_online, provider)
 
 class ChatBox(QWidget):
     def __init__(self, parent=None, chat_instance=None):
@@ -553,16 +560,18 @@ class ChatBox(QWidget):
         if DEBUG:
             print(f"JS Console ({level}): {message} [line {line}] {source}")
 
+
+
     def check_provider_status(self):
         """Check provider status and update UI accordingly."""
+        # Create and start the status check thread
+        self.status_thread = ProviderStatusThread()
+        self.status_thread.status_changed.connect(self.handle_provider_status)
+        self.status_thread.start()
 
-        is_online, provider = check_provider_status()
-
+    def handle_provider_status(self, is_online, provider):
+        """Handle the provider status results from the thread."""
         # Adjust timer interval based on status
-        if is_online:
-            self.provider_check_timer.setInterval(5000)  # Check every 5 seconds when online
-        else:
-            self.provider_check_timer.setInterval(1000)  # Check every second when offline
 
         if is_online != self.chat_instance.provider_online:  # Only update if state changed
             self.chat_instance.provider_online = is_online
@@ -581,7 +590,7 @@ class ChatBox(QWidget):
             "online": is_online
         }
 
-        self.chat_display.page().runJavaScript(f"updateProviderStatus({str(status_message).lower()})")        
+        self.chat_display.page().runJavaScript(f"updateProviderStatus({json.dumps(status_message)})")        
         self.chat_instance.send_btn.setEnabled(self.chat_instance.provider_online)
 
     def onLoadFinished(self, ok):
