@@ -163,3 +163,4 @@ cython_debug/
 
 __pycache__
 config.json
+chat_history.json
