@@ -264,7 +264,8 @@ class Bridge(QObject):
 
     @pyqtSlot(str)
     def editMessage(self, message_id):
-        print("editMessage", message_id)
+        if DEBUG:
+            print("editMessage", message_id)
         self.parent_chat.messages[message_id].start_edit()
 
 class ProviderStatusThread(QThread):
@@ -500,19 +501,32 @@ class ChatBox(QWidget):
         
         # Update UI to show editing state
         self.chat_instance.send_btn.setIcon(QIcon("icons/edit.png"))
+        load_svg_button_icon(self.chat_instance.send_btn, ".\\icons\\edit.svg")
         self.chat_instance.input_field.setText(message.get_text())
         
-        # Add any images from the message being edited
-        self.chat_instance.selected_screenshots = message.get_images()
+        # Clear existing screenshots and add images from the message being edited
+        self.chat_instance.prompt_images.clear()
+        for item in message.content:
+            if item.get("type") == "image" and "image_url" in item:
+                try:
+                    img_url = item["image_url"]["url"]
+                    base64_data = img_url.split(",")[1]
+                    img_data = base64.b64decode(base64_data)
+                    qimage = QImage()
+                    qimage.loadFromData(img_data)
+                    self.chat_instance.prompt_images.append(qimage)
+                except Exception as e:
+                    print(f"Error loading image during edit: {e}")
+        
         self.chat_instance.update_thumbnails()
 
     def handle_edit_end(self, message):
         """Handle when message editing ends."""
         self.current_editing_message = None
-        self.chat_instance.send_btn.setIcon(QIcon("icons/send.png"))
         self.chat_instance.input_field.clear()
-        self.chat_instance.selected_screenshots.clear()
+        self.chat_instance.prompt_images.clear()
         self.chat_instance.update_thumbnails()
+        load_svg_button_icon(self.chat_instance.send_btn, ".\\icons\\send.svg")
 
     def handle_message_action(self, message_id, action):
         """Handle message actions (edit, regenerate, etc.)."""
@@ -755,7 +769,8 @@ class ChatBox(QWidget):
         """Unified method to start a provider request."""
         try:
             model = self.active_model or get_default_model()
-            print(f"Starting provider request with model: {model}")
+            if DEBUG:
+                print(f"Starting provider request with model: {model}")
             
             # Check if current model supports vision
             base_model = get_base_model_name(model)

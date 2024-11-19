@@ -559,7 +559,8 @@ class PixelChat(QWidget):
         QTimer.singleShot(100, self._delayed_screenshot)
 
     def _delayed_screenshot(self):
-        print("Starting delayed screenshot process")
+        if DEBUG:
+            print("Starting delayed screenshot process")
         
         # Start with the screen containing the cursor
         cursor_pos = QCursor.pos()
@@ -593,7 +594,8 @@ class PixelChat(QWidget):
 
     def _check_screenshot_selector(self):
         if not self.screenshot_selector.isVisible():
-            print("Screenshot selector is no longer visible")  # Debug print
+            if DEBUG:
+                print("Screenshot selector is no longer visible")  # Debug print
             self.check_screenshot_timer.stop()
             QTimer.singleShot(100, self.show)  # Delay showing the main window
 
@@ -675,7 +677,8 @@ class PixelChat(QWidget):
                 self.input_layout.insertWidget(2 + i, container)
 
     def _post_screenshot_actions(self):
-        print("Performing post-screenshot actions")  # Debug print
+        if DEBUG:
+            print("Performing post-screenshot actions")  # Debug print
 
         # Update the UI to indicate a screenshot was taken
         self.input_field.setPlaceholderText("Screenshot taken. Type your message...")
@@ -684,7 +687,8 @@ class PixelChat(QWidget):
         self.input_field.setFocus(Qt.FocusReason.OtherFocusReason)
         self.activateWindow()  # Activate the window to ensure it can receive focus
 
-        print("Post-screenshot actions completed")  # Debug print
+        if DEBUG:
+            print("Post-screenshot actions completed")  # Debug print
 
     
     def position_window(self):

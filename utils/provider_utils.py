@@ -106,9 +106,10 @@ class ProviderRequest(QThread):
             ollama_url = get_ollama_url()
 
             # Debug print the request
-            print("Request to Ollama:")
-            print(f"URL: {ollama_url}/api/chat")
-            print("Messages structure:", json.dumps(request_params["messages"], indent=2))
+            if DEBUG:
+                print("Request to Ollama:")
+                print(f"URL: {ollama_url}/api/chat")
+                print("Messages structure:", json.dumps(request_params["messages"], indent=2))
 
             # Make streaming request to Ollama API
             response = requests.post(
@@ -190,9 +191,10 @@ class ProviderRequest(QThread):
                 data["temperature"] = self.temperature
 
             # Debug print the request
-            print("OpenAI Request:")
-            print(f"URL: {self.api_url}/chat/completions")
-            print("Messages structure:", json.dumps(data["messages"], indent=2))
+            if DEBUG:
+                print("OpenAI Request:")
+                print(f"URL: {self.api_url}/chat/completions")
+                print("Messages structure:", json.dumps(data["messages"], indent=2))
 
             response = requests.post(
                 f"{self.api_url}/chat/completions",
