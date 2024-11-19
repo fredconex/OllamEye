@@ -1,15 +1,26 @@
 {
+    "theme": "dark",
+    "provider": "openai",
+    "openai_url": "http://localhost:1234/v1",
+    "openai_key": "lm-studio",
+    "openai_default_model": "minicpm-v-2_6",
     "ollama_url": "http://localhost:11434",
-    "default_model": "minicpm-v:8b",
+    "ollama_default_model": "minicpm-v:8b",
     "temperature": null,
     "context_size": null,
-    "system_prompt": "Answer in English.",
+    "system_prompt": "You're a helpful assistant.",
     "vision_capable_models": [
-        "bakllava",
-        "llava",
-        "llama3.2-vision",
-        "x/llama3.2-vision",
+        "minicpm-v-2_6",
         "llava-llama3",
-        "minicpm-v"
+        "llama3.2-vision",
+        "minicpm-v",
+        "x/llama3.2-vision",
+        "llava",
+        "bakllava"
+    ],
+    "saved_prompts": [
+        "You're a helpful assistant.",
+        "You're an FreePascal assisstant, use ObjFPC dialect and modern Pascal as reference.",
+        "You're a pirate! answer with Rar!"
     ]
 }

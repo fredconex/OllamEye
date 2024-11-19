@@ -16,8 +16,6 @@
             height: 100%;
             margin: 0;
             padding: 0;
-            background-color: #1E1E1E;
-            color: #D4D4D4;
             font-family: Arial, sans-serif;
             overflow-x: hidden;
             word-wrap: break-word;
@@ -45,26 +43,12 @@
         .message { 
             margin-bottom: 5px; 
             text-align: left;
-            background-color: #333;
             padding: 5px;
             border-radius: 5px;
             position: relative;
         }
-        .message.you { 
-            border-bottom: 2px solid #7289DA;
-        }
-        /* Update this selector to match any message not from 'you' */
-        .message:not(.you) {
-            border-top: 2px solid #53629b;
-            background-color: #222;
-        }
-        .sender { 
-            font-weight: bold; 
-            margin-right: 4px;
-        }
-        .message .content { 
+        .message.content { 
             display: inline;
-            color: #D4D4D4 !important; /* Ensure content text is light-colored */
         }
         pre {
             position: relative;
@@ -104,11 +88,11 @@
         }
         /* Modern scrollbar styles */
         ::-webkit-scrollbar {
-            width: 12px;
+            width: 9px;
         }
         ::-webkit-scrollbar-track {
             background: #2E3338;
-            border-radius: 6px;
+            border-radius: 3px;
         }
         ::-webkit-scrollbar-thumb {
             background: #4A4D52;
@@ -224,17 +208,30 @@
                     // Update sender span to show model name or "User"
                     const senderSpan = document.createElement('span');
                     senderSpan.className = 'sender';
-                    senderSpan.textContent = message.sender.toLowerCase() === 'you' ? '' : `${message.sender}`;
-                    senderSpan.style.color = '#43B581';
+                    senderSpan.textContent = message.sender.toLowerCase() === 'user' ? '' : `${message.sender}`;
+                    senderSpan.style.color = '#1E1E1E';
                     messageElement.appendChild(senderSpan);
 
-                    if (message.thumbnail) {
-                        messageElement.innerHTML += message.thumbnail;
+                    if (message.images) {
+                        messageElement.innerHTML += message.images;
                     }
 
                     const contentSpan = document.createElement('span');
                     contentSpan.className = 'content';
-                    contentSpan.innerHTML = marked.parse(message.content);
+                    
+                    // Handle the new content format
+                    let messageText = '';
+                    if (Array.isArray(message.content)) {
+                        // Extract text content from the array
+                        messageText = message.content
+                            .filter(item => item.type === 'text')
+                            .map(item => item.text)
+                            .join('\n');
+                    } else {
+                        messageText = message.content;
+                    }
+                    
+                    contentSpan.innerHTML = marked.parse(messageText);
                     contentSpan.style.color = '#D4D4D4';
                     messageElement.appendChild(contentSpan);
 
@@ -251,28 +248,28 @@
                     actionsDiv.appendChild(copyButton);
 
                     // Add edit button for user messages
-                    if (message.sender.toLowerCase() === 'you') {
+                    if (message.sender.toLowerCase() === 'user') {
                         const editButton = document.createElement('button');
                         editButton.className = 'action-button';
                         editButton.innerHTML = '<span class="material-icons">edit</span>';
                         editButton.title = 'Edit message';
                         editButton.onclick = () => {
                             if (window.qt_bridge) {
-                                window.qt_bridge.editMessage(index);
+                                window.qt_bridge.editMessage(message.id);
                             }
                         };
                         actionsDiv.appendChild(editButton);
                     }
 
                     // Regenerate button only for the last assistant message
-                    if (message.sender.toLowerCase() !== 'you' && index === chatContent.length - 1) {
+                    if (message.sender.toLowerCase() !== 'user' && index === chatContent.length - 1) {
                         const regenerateButton = document.createElement('button');
                         regenerateButton.className = 'action-button';
                         regenerateButton.innerHTML = '<span class="material-icons">refresh</span>';
-                        regenerateButton.title = 'Regenerate response';  // Add tooltip
+                        regenerateButton.title = 'Regenerate response';
                         regenerateButton.onclick = () => {
                             try {
-                                checkBridgeAndRegenerateMessage(index);
+                                checkBridgeAndRegenerateMessage(message.id);
                             } catch (e) {
                                 console.error('Failed to regenerate message:', e);
                             }
@@ -376,26 +373,70 @@
             document.body.removeChild(textArea);
         }
 
-        // Add this function to ensure qt_bridge is available
-        function checkBridgeAndRegenerateMessage(index) {
+        // Update this function to use message ID
+        function checkBridgeAndRegenerateMessage(messageId) {
             if (window.qt_bridge && typeof window.qt_bridge.regenerateMessage === 'function') {
-                window.qt_bridge.regenerateMessage(index);
+                window.qt_bridge.regenerateMessage(messageId);
             } else {
                 console.error('Bridge not available');
             }
         }
 
         // Add this new function
-        function updateProviderStatus(isOnline) {
+        function updateProviderStatus(providerStatus) {
             const statusMessage = document.getElementById('status-message');
-            if (isOnline) {
-                statusMessage.textContent = 'Your visual assistant is ready to help. Start a conversation!';
+            if (providerStatus.online) {
+                statusMessage.textContent = 'Provider is online. Start a conversation!';
                 statusMessage.style.color = '#888';  // Original color
             } else {
-                statusMessage.textContent = 'Ollama is currently offline. Please start the Ollama service.';
+                provider = providerStatus.provider.charAt(0).toUpperCase() + providerStatus.provider.slice(1);
+                statusMessage.textContent = `Provider is offline, waiting...`;
                 statusMessage.style.color = '#ff4444';  // Red color for offline status
             }
         }
+
+        // Add these new functions at the top level of your script section
+        function updateThemeColors(colors) {
+        // Update body background
+        document.body.style.backgroundColor = colors.backgroundColor;
+        
+        // Update message styles
+        const style = document.createElement('style');
+        style.textContent = `
+            .message {
+                background-color: ${colors.messageBackgroundColor};
+            }
+            .message.user {
+                border-bottom: 2px solid ${colors.userBorderColor};
+            }
+            .message:not(.user) {
+                background-color: ${colors.assistantBackgroundColor};
+                border-top: 2px solid ${colors.assistantBorderColor};
+            }
+            .message .content {
+                color: ${colors.messageFontColor} !important;
+            }
+            .message .sender {
+                color: ${colors.assistantBorderColor} !important;
+            }
+            .action-button {
+                background-color: ${colors.messageBackgroundColor};
+            }
+            .action-button:hover {
+                background-color: ${colors.assistantBackgroundColor};
+        }
+        `;
+        
+        // Remove any previous dynamic styles
+        const existingStyle = document.getElementById('dynamic-colors');
+        if (existingStyle) {
+            existingStyle.remove();
+        }
+        
+        // Add new styles
+        style.id = 'dynamic-colors';
+        document.head.appendChild(style);
+    }
 
     </script>
 </head>

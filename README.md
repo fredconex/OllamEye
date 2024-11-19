@@ -4,15 +4,18 @@
 
 A minimalist client solution for Ollama written in python with ability to capture screen to use with vision models.
 - Screenshot capturing with multi-monitor support
+- Drag and Drop / Paste images to prompt
 - Markdown / Code blocks support
 - Easy tagging for models that are vision enabled
 - 3 display modes (Collapsed, Minimal and Expanded)
 - @ on start of prompt to easily choose the model
-- Drag and Drop / Paste images to prompt
+- Chat history persistence
+- System prompt browser
+- Theme support
+- Compatible with Ollama / OpenAI API
 
 To-Do:
-- Context persistency between sessions
-- Refactor and removal of unecessary or redundant code
+- Refactor and removal of unecessary or redundant code (30-40% done)
 
 # Installation (Windows)
 git clone https://github.com/fredconex/PixelLlama.git  
