@@ -14,8 +14,13 @@ class SettingsManager:
             config = json.load(file)
         
         # Ensure default values are set
+        config.setdefault("openai_url", "https://api.openai.com/v1")
+        config.setdefault("openai_key", "")
+        config.setdefault("openai_default_model", "llama3.1:8b")
+
         config.setdefault("ollama_url", "http://localhost:11434")
-        config.setdefault("default_model", "llama3.1:8b")
+        config.setdefault("ollama_default_model", "llama3.1:8b")
+
         config.setdefault("temperature", None)
         config.setdefault("context_size", None)
         config.setdefault("system_prompt", "")
@@ -43,10 +48,34 @@ def get_default_model():
     try:
         with open("config.json", "r") as f:
             settings = json.load(f)
-        return settings.get("default_model", "minicpm-v:8b")
+        if get_provider() == "openai":
+            return settings.get("openai_default_model", "llama3.1:8b")
+        else:
+            return settings.get("ollama_default_model", "llama3.1:8b")
     except FileNotFoundError:
-        return "minicpm-v:8b"
+        return "llama3.1:8b"
 
+def load_settings_from_file():
+    return SettingsManager.load_config()
+
+def save_settings_to_file(settings):
+    SettingsManager.save_config(settings)
+
+def get_provider():
+    settings = load_settings_from_file()
+    return settings.get("provider", "ollama")
+
+def get_openai_key():
+    settings = load_settings_from_file()
+    return settings.get("openai_key")
+
+def get_openai_url():
+    try:
+        with open("config.json", "r") as f:
+            settings = json.load(f)
+        return settings.get("openai_url", "https://api.openai.com/v1")
+    except FileNotFoundError:
+        return "https://api.openai.com/v1"
 
 def get_ollama_url():
     try:
@@ -55,10 +84,3 @@ def get_ollama_url():
         return settings.get("ollama_url", "http://localhost:11434")
     except FileNotFoundError:
         return "http://localhost:11434"
-     
-
-def load_settings_from_file():
-    return SettingsManager.load_config()
-
-def save_settings_to_file(settings):
-    SettingsManager.save_config(settings)

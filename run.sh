@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # PixelLlama info
-echo "PixelLlama - version 0.92a"
+echo "PixelLlama - version 0.95b"
 echo "Launching PixelLlama..."
 
 # Set the name of your virtual environment
