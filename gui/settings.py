@@ -1,4 +1,5 @@
 import os
+import sys
 from utils.settings_manager import load_settings_from_file, save_settings_to_file
 
 from PyQt6.QtCore import (
@@ -19,6 +20,7 @@ from PyQt6.QtWidgets import (
     QDialog,
     QGridLayout,
     QComboBox,
+    QApplication,
 )
 from PyQt6.QtGui import (
     QDoubleValidator,
@@ -33,6 +35,7 @@ from utils.provider_utils import (
     get_openai_url,
 )
 
+DEBUG = "-debug" in sys.argv
 
 @staticmethod
 def get_base_model_name(model_name):
@@ -154,30 +157,33 @@ class SettingsPage(QWidget):
 
         # Ollama URL input
         self.ollama_url_label = QLabel("Ollama URL:")
+        self.ollama_url_label.setStyleSheet(self.chat_instance.styleSheet())
         self.ollama_url_input = QLineEdit()
         self.ollama_url_input.setText(get_ollama_url())
         self.ollama_url_input.setPlaceholderText("http://localhost:11434")
         self.ollama_url_input.setObjectName("ollamaUrlInput")
-        self.ollama_url_input.setStyleSheet(self.styleSheet())
+        self.ollama_url_input.setStyleSheet(self.chat_instance.styleSheet())
         provider_layout.addWidget(self.ollama_url_label, 1, 0)
         provider_layout.addWidget(self.ollama_url_input, 1, 1)
 
         # OpenAI settings
         self.openai_url_label = QLabel("OpenAI URL:")
+        self.openai_url_label.setStyleSheet(self.chat_instance.styleSheet())
         self.openai_url_input = QLineEdit()
         self.openai_url_input.setText(get_openai_url())
         self.openai_url_input.setPlaceholderText("https://api.openai.com/v1")
         self.openai_url_input.setObjectName("openaiUrlInput")
-        self.openai_url_input.setStyleSheet(self.styleSheet())
-        provider_layout.addWidget(self.openai_url_label, 1, 0)
-        provider_layout.addWidget(self.openai_url_input, 1, 1)
+        self.openai_url_input.setStyleSheet(self.chat_instance.styleSheet())
+        provider_layout.addWidget(self.openai_url_label, 2, 0)
+        provider_layout.addWidget(self.openai_url_input, 2, 1)
 
         self.openai_key_label = QLabel("OpenAI API Key:")
         self.openai_key_input = QLineEdit()
         self.openai_key_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.openai_key_input.setText(self.settings.get("openai_key", ""))
-        provider_layout.addWidget(self.openai_key_label, 2, 0)
-        provider_layout.addWidget(self.openai_key_input, 2, 1)
+        self.openai_key_label.setStyleSheet(self.chat_instance.styleSheet())
+        provider_layout.addWidget(self.openai_key_label, 3, 0)
+        provider_layout.addWidget(self.openai_key_input, 3, 1)
 
         # Add provider container to scroll layout
         scroll_layout.addWidget(provider_container)
@@ -201,7 +207,7 @@ class SettingsPage(QWidget):
         # Add model list reload button
         self.model_reload_button = QPushButton()
         self.model_reload_button.setFixedSize(30, 30)
-        self.model_reload_button.clicked.connect(self.load_models)
+        self.model_reload_button.clicked.connect(self.reload_models)
         self.model_reload_button.setStyleSheet(self.styleSheet())
         load_svg_button_icon(self.model_reload_button, ".\\icons\\refresh.svg")
         search_layout.addWidget(self.model_reload_button)
@@ -290,7 +296,9 @@ class SettingsPage(QWidget):
 
         # Update visibility based on selected provider
         self.update_provider_fields()
-        self.load_models()
+        self.reload_models()
+
+
 
     def filter_models(self, text):
         """Filter the model list based on the search text."""
@@ -409,60 +417,78 @@ class SettingsPage(QWidget):
         self.load_settings()
         self.chat_instance.toggle_settings()
 
-    def load_models(self):
-        """Load models based on selected provider"""
+    def reload_models(self):
+        """Reload the model list"""
         try:
-            self.model_names = sorted(request_models(provider=self.provider_combo.currentText().lower()))        
-            self.model_list.clear()            
+            self.setCursor(Qt.CursorShape.WaitCursor)
+            
+            # Clear existing items and their widgets
+            while self.model_list.count() > 0:
+                item = self.model_list.takeItem(0)
+                widget = self.model_list.itemWidget(item)
+                if widget:
+                    widget.deleteLater()
+                del item
+                
+            self.model_names = []
+            self.model_list.clear()  # Ensure list is visually cleared
+            
+            # Force update of the UI
+            QApplication.processEvents()
+            
+            # Now load new models
+            self.model_names = sorted(request_models(provider=self.provider_combo.currentText().lower()))
+            self.update_list()
+        finally:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
 
-            # Create items with fixed button positions
-            for model_name in self.model_names:
-                item = QListWidgetItem(self.model_list)
-                base_model = get_base_model_name(model_name)  # Get base model name
+    def update_list(self):
+        """Load models based on selected provider"""
+        self.model_list.clear()            
 
-                # Create a widget to hold the model name and icons
-                widget = QWidget()
-                layout = QHBoxLayout(widget)
-                layout.setContentsMargins(5, 2, 5, 2)
-                layout.setSpacing(0)  # Remove spacing between elements
+        # Create items with fixed button positions
+        for model_name in self.model_names:
+            item = QListWidgetItem(self.model_list)
+            base_model = get_base_model_name(model_name)  # Get base model name
 
-                # Create a fixed-width container for buttons
-                button_container = QWidget()
-                button_container.setFixedWidth(56)  # Adjust width based on your buttons
+            # Create a widget to hold the model name and icons
+            widget = QWidget()
+            layout = QHBoxLayout(widget)
+            layout.setContentsMargins(5, 2, 5, 2)
+            layout.setSpacing(0)  # Remove spacing between elements
 
-                button_layout = QHBoxLayout(button_container)
-                button_layout.setContentsMargins(0, 0, 0, 0)
-                button_layout.setSpacing(2)
-                button_layout.setAlignment(
-                    Qt.AlignmentFlag.AlignLeft
-                )  # Align buttons to the left
+            # Create a fixed-width container for buttons
+            button_container = QWidget()
+            button_container.setFixedWidth(56)  # Adjust width based on your buttons
 
-                # Add button container first
-                layout.addWidget(button_container, 0, Qt.AlignmentFlag.AlignLeft)
+            button_layout = QHBoxLayout(button_container)
+            button_layout.setContentsMargins(0, 0, 0, 0)
+            button_layout.setSpacing(2)
+            button_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
-                # Add model name label with elision
-                label = QLabel(model_name)
-                label.setStyleSheet(
-                    "text-align: left; padding-left: 0px;"
-                )  # Add left padding
-                label.setMinimumWidth(50)  # Ensure minimum text visibility
-                label.setMaximumWidth(300)  # Limit maximum width
-                layout.addWidget(
-                    label, 1, Qt.AlignmentFlag.AlignLeft
-                )  # Use stretch factor 1 to fill remaining space
+            # Add button container first
+            layout.addWidget(button_container, 0, Qt.AlignmentFlag.AlignLeft)
 
+            # Add model name label with elision
+            label = QLabel(model_name)
+            label.setStyleSheet("text-align: left; padding-left: 0px;")
+            label.setMinimumWidth(50)
+            label.setMaximumWidth(300)
+            layout.addWidget(label, 1, Qt.AlignmentFlag.AlignLeft)
+
+            if model_name not in ["Error loading models"]:
                 # Add default model button
                 default_btn = QPushButton()
                 default_btn.setFixedSize(24, 24)
                 default_btn.setObjectName("modelDefaultButton")
                 default_btn.setProperty("model_name", model_name)
-                default_btn.setProperty("is_default", model_name == self.ollama_default_model if self.provider_combo.currentText().lower() == "ollama" else model_name == self.openai_default_model)
+                current_default = (self.ollama_default_model if self.provider_combo.currentText().lower() == "ollama" 
+                                    else self.openai_default_model)
+                default_btn.setProperty("is_default", model_name == current_default)
                 default_btn.setStyleSheet(self.chat_instance.styleSheet())
                 load_svg_button_icon(default_btn, ".\\icons\\default.svg")
                 default_btn.clicked.connect(
-                    lambda checked, m=model_name, b=default_btn: self.handle_default_model_click(
-                        m, b
-                    )
+                    lambda checked, m=model_name, b=default_btn: self.handle_default_model_click(m, b)
                 )
                 button_layout.addWidget(default_btn)
 
@@ -471,25 +497,20 @@ class SettingsPage(QWidget):
                 camera_btn.setFixedSize(24, 24)
                 camera_btn.setObjectName("modelCameraButton")
                 camera_btn.setProperty("model_name", model_name)
-                camera_btn.setProperty(
-                    "enabled_state", base_model in self.vision_capable_models
+                camera_btn.setProperty("enabled_state", base_model in self.vision_capable_models)
+                camera_btn.clicked.connect(
+                    lambda checked, m=model_name, b=camera_btn: self.handle_model_camera_click(m, b)
                 )
                 self.update_camera_button_style(camera_btn)
-                camera_btn.clicked.connect(
-                    lambda checked, m=model_name, b=camera_btn: self.handle_model_camera_click(
-                        m, b
-                    )
-                )
                 button_layout.addWidget(camera_btn)
-
-                # Set the custom widget as the item's widget
-                item.setSizeHint(widget.sizeHint())
-                self.model_list.setItemWidget(item, widget)
 
                 # Update default button style
                 self.update_default_button_style(default_btn)
-        finally:
-            print("Models loaded")
+
+            # Set the custom widget as the item's widget
+            item.setSizeHint(widget.sizeHint())
+            self.model_list.setItemWidget(item, widget)
+
 
     def handle_default_model_click(self, model_name, button):
         """Handle clicking the default model button."""
@@ -755,7 +776,7 @@ class SettingsPage(QWidget):
     def on_provider_changed(self, provider):
         """Handle provider change in combo box"""
         self.update_provider_fields()
-        self.load_models()
+        self.reload_models()
 
     def update_provider_fields(self):
         """Update visibility of provider-specific fields"""
