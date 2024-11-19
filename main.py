@@ -98,7 +98,7 @@ class PixelChat(QWidget):
         self.dragging = False
         self.drag_start_position = None
         self.current_response_model = None
-        
+        self.status_thread = None
         # Use the custom ImageDropTextEdit
         self.input_field = PromptBox(self, chat_instance=self)
         self.input_field.setPlaceholderText("Type your message...")
@@ -124,8 +124,8 @@ class PixelChat(QWidget):
         self.provider_status_displayed = False
 
         # Add these new attributes for multiple images
-        self.prompt_images = []  # List to store multiple images
         self.MAX_IMAGES = 3  # Maximum number of allowed images
+        self.prompt_images = []  # List to store multiple images
         self.thumbnail_containers = []  # List to store thumbnail containers
 
         # Create thumbnail containers

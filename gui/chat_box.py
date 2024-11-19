@@ -270,9 +270,14 @@ class Bridge(QObject):
 class ProviderStatusThread(QThread):
     status_changed = pyqtSignal(bool, str)
     
+    def __init__(self, chat_instance):
+        super().__init__()
+        self.chat_instance = chat_instance
+    
     def run(self):
         is_online, provider = check_provider_status()
         self.status_changed.emit(is_online, provider)
+        self.chat_instance.status_thread = None
 
 class ChatBox(QWidget):
     def __init__(self, parent=None, chat_instance=None):
@@ -565,9 +570,10 @@ class ChatBox(QWidget):
     def check_provider_status(self):
         """Check provider status and update UI accordingly."""
         # Create and start the status check thread
-        self.status_thread = ProviderStatusThread()
-        self.status_thread.status_changed.connect(self.handle_provider_status)
-        self.status_thread.start()
+        if self.chat_instance.status_thread is None:
+            self.chat_instance.status_thread = ProviderStatusThread(self.chat_instance)
+            self.chat_instance.status_thread.status_changed.connect(self.handle_provider_status)
+            self.chat_instance.status_thread.start()
 
     def handle_provider_status(self, is_online, provider):
         """Handle the provider status results from the thread."""
