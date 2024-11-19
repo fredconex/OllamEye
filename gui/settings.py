@@ -294,9 +294,14 @@ class SettingsPage(QWidget):
 
     def filter_models(self, text):
         """Filter the model list based on the search text."""
+        search_text = text.lower()
         for index in range(self.model_list.count()):
             item = self.model_list.item(index)
-            item.setHidden(text.lower() not in item.text().lower())
+            model_name = self.get_selected_model_name(item)
+            if model_name:
+                item.setHidden(search_text not in model_name.lower())
+            else:
+                item.setHidden(True)
 
     def get_selected_model_name(self, item):
         # Retrieve the custom widget associated with the item
