@@ -128,7 +128,8 @@ class PromptBox(QTextEdit):
                     cursor.insertText("\n")
                     return True
                 else:
-                    self.chat_instance.send_message()
+                    if self.chat_instance.provider_online:
+                        self.chat_instance.send_message()
                     return True
         
         return super().eventFilter(obj, event)
