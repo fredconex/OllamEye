@@ -2,7 +2,7 @@
 
 # PixelLlama!  
 
-A minimalist client solution for Ollama written in python with ability to capture screen to use with vision models.
+A minimalist client solution for Ollama / OpenAI API written in python with ability to capture screen to use with vision models.
 - Screenshot capturing with multi-monitor support
 - Drag and Drop / Paste images to prompt
 - Markdown / Code blocks support
@@ -25,11 +25,10 @@ cd ./PixelLlama
 Execution of run.bat will create a new environment, install the required packages automatically and launch PixelLlama.
 
 # Screenshots
-![Captura de tela 2024-11-20 103916](https://github.com/user-attachments/assets/ed94da05-c29f-4dd6-b2e7-f141d9eece7d)
-![Captura de tela 2024-11-19 191349](https://github.com/user-attachments/assets/f11eb11b-6f75-4598-9925-82b95a6450eb)
-![Captura de tela 2024-11-19 191331](https://github.com/user-attachments/assets/d0c1845a-f811-4726-873a-151426b5ab8c)
-![Captura de tela 2024-11-19 191422](https://github.com/user-attachments/assets/613427c7-c10e-4af0-bbbd-75fdc01672a2)
-
+<img width=256px src="https://github.com/user-attachments/assets/ed94da05-c29f-4dd6-b2e7-f141d9eece7d"/>
+<img width=256px src="https://github.com/user-attachments/assets/f11eb11b-6f75-4598-9925-82b95a6450eb"/>
+<img width=256px src="https://github.com/user-attachments/assets/d0c1845a-f811-4726-873a-151426b5ab8c"/>
+<img width=256px src="https://github.com/user-attachments/assets/613427c7-c10e-4af0-bbbd-75fdc01672a2"/>
 
 # Donate
 <a href="https://www.paypal.com/donate/?hosted_button_id=24CJHH95X3AQS"><img width=256px src="https://raw.githubusercontent.com/stefan-niedermann/paypal-donate-button/master/paypal-donate-button.png" alt="Donate with PayPal" /></a>
