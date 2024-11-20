@@ -209,7 +209,7 @@ class SettingsPage(QWidget):
         # Add model list reload button
         self.model_reload_button = QPushButton()
         self.model_reload_button.setFixedSize(30, 30)
-        self.model_reload_button.clicked.connect(self.reload_models)
+        self.model_reload_button.clicked.connect(lambda: self.reload_models(update_ui=True))
         self.model_reload_button.setStyleSheet(self.styleSheet())
         load_svg_button_icon(self.model_reload_button, ".\\icons\\refresh.svg")
         search_layout.addWidget(self.model_reload_button)
@@ -298,8 +298,6 @@ class SettingsPage(QWidget):
 
         # Update visibility based on selected provider
         self.update_provider_fields()
-        self.reload_models()
-
 
 
     def filter_models(self, text):
@@ -429,30 +427,33 @@ class SettingsPage(QWidget):
 
         self.chat_instance.chat_box.update_webview_colors()
 
-    def reload_models(self):
+    def reload_models(self, update_ui=False):
         """Reload the model list"""
         try:
-            self.setCursor(Qt.CursorShape.WaitCursor)
-            
-            # Clear existing items and their widgets
-            while self.model_list.count() > 0:
-                item = self.model_list.takeItem(0)
-                widget = self.model_list.itemWidget(item)
-                if widget:
-                    widget.deleteLater()
-                del item
-                
-            self.model_names = []
-            self.model_list.clear()  # Ensure list is visually cleared
-            
             # Force update of the UI
             QApplication.processEvents()
-            
+
             # Now load new models
-            self.model_names = sorted(request_models(provider=self.provider_combo.currentText().lower()))
-            self.update_list()
+            self.model_names = []
+            self.model_names = sorted(request_models(self.provider_combo.currentText().lower()))            
+
+            if update_ui:
+                self.setCursor(Qt.CursorShape.WaitCursor)
+
+                # Clear existing items and their widgets
+                while self.model_list.count() > 0:
+                    item = self.model_list.takeItem(0)
+                    widget = self.model_list.itemWidget(item)
+                    if widget:
+                        widget.deleteLater()
+                    del item
+                
+                self.model_list.clear()  # Ensure list is visually cleared
+                self.update_list()
         finally:
-            self.setCursor(Qt.CursorShape.ArrowCursor)
+            self.chat_instance.provider_online = not self.model_names[0] in ["Error loading models"]
+            if update_ui:
+                self.setCursor(Qt.CursorShape.ArrowCursor)
 
     def update_list(self):
         """Load models based on selected provider"""
@@ -795,7 +796,6 @@ class SettingsPage(QWidget):
     def on_provider_changed(self, provider):
         """Handle provider change in combo box"""
         self.update_provider_fields()
-        self.reload_models()
 
     def update_provider_fields(self):
         """Update visibility of provider-specific fields"""
@@ -810,4 +810,7 @@ class SettingsPage(QWidget):
         self.openai_url_input.setVisible(not is_ollama)
         self.openai_key_label.setVisible(not is_ollama)
         self.openai_key_input.setVisible(not is_ollama)
+
+        # Reload models
+        self.reload_models(update_ui=True)
         

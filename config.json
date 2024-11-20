@@ -10,17 +10,16 @@
     "context_size": null,
     "system_prompt": "You're a helpful assistant.",
     "vision_capable_models": [
-        "minicpm-v-2_6",
-        "llava-llama3",
+        "bakllava",
         "llama3.2-vision",
-        "minicpm-v",
-        "x/llama3.2-vision",
         "llava",
-        "bakllava"
+        "llava-llama3",
+        "minicpm-v",
+        "minicpm-v-2_6",
+        "x/llama3.2-vision"
     ],
     "saved_prompts": [
         "You're a helpful assistant.",
-        "You're an FreePascal assisstant, use ObjFPC dialect and modern Pascal as reference.",
-        "You're a pirate! answer with Rar!"
+        "You're a skillfull coder, use modern practices and clean code."
     ]
 }

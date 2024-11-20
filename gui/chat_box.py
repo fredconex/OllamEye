@@ -2,14 +2,13 @@ import uuid
 from PyQt6.QtWidgets import QWidget, QVBoxLayout
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
-from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QTimer, QByteArray, QBuffer, QIODevice, QThread
+from PyQt6.QtCore import QObject, pyqtSlot, QByteArray, QBuffer, QIODevice, QThread, QTimer
 from PyQt6.QtGui import QImage, QIcon
 import os
 import json
 import base64
 from datetime import datetime
 from gui.settings import get_base_model_name, load_svg_button_icon
-from utils.provider_utils import check_provider_status
 from utils.settings_manager import get_default_model
 from utils.chat_storage import ChatStorage
 from collections import OrderedDict
@@ -269,35 +268,32 @@ class Bridge(QObject):
         self.parent_chat.messages[message_id].start_edit()
 
 class ProviderStatusThread(QThread):
-    status_changed = pyqtSignal(bool, str)
-    
-    def __init__(self, chat_instance):
+    def __init__(self, settings_interface):
         super().__init__()
-        self.chat_instance = chat_instance
+        self.settings_interface = settings_interface
     
     def run(self):
-        is_online, provider = check_provider_status()
-        self.status_changed.emit(is_online, provider)
-        self.chat_instance.status_thread = None
+        self.settings_interface.reload_models()
 
 class ChatBox(QWidget):
     def __init__(self, parent=None, chat_instance=None):
         super().__init__(parent)
         self.parent = parent
-        self.chat_instance = chat_instance
+
         # Initialize state
+        self.is_online_tracker = False
+        self.chat_instance = chat_instance
         self.chat_content = []
         self.current_response = ""
         self.is_receiving = False
         self.current_editing_message = None
-        self.chat_instance.provider_online = False
         self.provider_status_displayed = False
         self.chat_storage = ChatStorage()
         self.active_model = None
-        self.messages = OrderedDict()  # Single source of truth
-        
+        self.messages = OrderedDict()  # Messages are stored in an ordered dictionary
+        self.time_to_update_provider_status = 0
         self.initUI()
-        
+
         # Load chat history into ordered dict
         history = self.chat_storage.load_chat_history()
         previous_user_msg = None
@@ -312,11 +308,6 @@ class ChatBox(QWidget):
                     previous_user_msg.child_message = msg
             elif msg.role == "user":
                 previous_user_msg = msg
-        
-        # Add provider status check timer
-        self.provider_check_timer = QTimer(self)
-        self.provider_check_timer.timeout.connect(self.check_provider_status)
-        self.provider_check_timer.start(5000)
 
     def initUI(self):
         layout = QVBoxLayout(self)
@@ -336,6 +327,14 @@ class ChatBox(QWidget):
 
         # Connect the JavaScript bridge
         self.chat_display.page().loadFinished.connect(self.onLoadFinished)
+
+        # Check provider status when chat display loads and initialize timer
+        self.chat_display.loadFinished.connect(lambda: self.chat_instance.settings_interface.reload_models(update_ui=True))
+        self.chat_display.loadFinished.connect(lambda: (
+            setattr(self, 'provider_status_timer', QTimer()),
+            getattr(self, 'provider_status_timer').timeout.connect(self.check_provider_status),
+            getattr(self, 'provider_status_timer').start(1000)
+        ))
 
     def initialize_chat_display(self):
         """Initializes the chat display with HTML template and app icon"""
@@ -410,6 +409,10 @@ class ChatBox(QWidget):
 
     def handle_response_chunk(self, chunk, message_id):
         """Route response chunks to appropriate message."""
+        if isinstance(chunk, str) and chunk.startswith("Error:"):
+            # Set provider offline if request failed
+            self.chat_instance.provider_online = False
+            
         if DEBUG:
             print("\n=== handle_response_chunk ===")
             print(f"Incoming chunk for message ID: {message_id}")
@@ -429,6 +432,8 @@ class ChatBox(QWidget):
                 self.current_response = chunk
                 last_msg = next(reversed(self.messages.values()))
                 last_msg.handle_response_chunk(self.current_response)
+        
+        self.update_chat_display()
 
     def handle_response_complete(self):
         """Handle completion of Ollama response."""
@@ -579,37 +584,44 @@ class ChatBox(QWidget):
         if DEBUG:
             print(f"JS Console ({level}): {message} [line {line}] {source}")
 
-
-
     def check_provider_status(self):
         """Check provider status and update UI accordingly."""
-        # Create and start the status check thread
-        if self.chat_instance.status_thread is None:
-            self.chat_instance.status_thread = ProviderStatusThread(self.chat_instance)
-            self.chat_instance.status_thread.status_changed.connect(self.handle_provider_status)
+        self.time_to_update_provider_status += 1
+        if self.time_to_update_provider_status > (20 if self.chat_instance.provider_online else 5):
+            self.time_to_update_provider_status = 0
+            #if self.chat_instance.status_thread is None:
+            self.chat_instance.status_thread = ProviderStatusThread(self.chat_instance.settings_interface)
+            #self.chat_instance.status_thread.finished_cleanup.connect(self.cleanup_reload_thread)
             self.chat_instance.status_thread.start()
+        self.handle_provider_status()
 
-    def handle_provider_status(self, is_online, provider):
+    def cleanup_reload_thread(self, thread):
+            """Clean up the reload thread reference"""
+            if hasattr(self, 'reload_thread') and self.reload_thread == thread:
+                self.reload_thread = None
+
+    def handle_provider_status(self):
         """Handle the provider status results from the thread."""
-        # Adjust timer interval based on status
+        # Update timer interval based on status
+        provider_online = self.chat_instance.provider_online
 
-        if is_online != self.chat_instance.provider_online:  # Only update if state changed
-            self.chat_instance.provider_online = is_online
-            self.chat_instance.update_gradient_state()  # Update gradient
-            
-            # Force an immediate gradient update
-            self.chat_instance.update_gradient()
+        if self.is_online_tracker != provider_online:  # Only update if state changed
+            self.chat_instance.update_gradient_state()
+            self.chat_instance.update_gradient()  # Force immediate gradient update
 
             # If we just came online and have messages, display them
-            if is_online and len(self.messages) > 0:
+            if provider_online and len(self.messages) > 0:
                 self.rebuild_chat_content()
+
+        # Update local state
+        self.is_online_tracker = provider_online
 
         # Update status in UI
         status_message = {
-            "provider": provider,
-            "online": is_online
+            "provider": "Unknown",
+            "online": provider_online
         }
-
+        
         self.chat_display.page().runJavaScript(f"updateProviderStatus({json.dumps(status_message)})")        
         self.chat_instance.send_btn.setEnabled(self.chat_instance.provider_online)
 

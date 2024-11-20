@@ -133,8 +133,15 @@ class ProviderRequest(QThread):
 
             self.response_complete.emit(self.message_id)
 
+        except requests.ConnectionError:
+            self.response_chunk_ready.emit("Error: Cannot connect to Ollama. Please check if Ollama is running.", self.message_id)
+            self.response_complete.emit(self.message_id)
         except Exception as e:
-            self.response_chunk_ready.emit(f"Error: {str(e)}", self.message_id)
+            # Simplify generic error messages
+            error_msg = str(e)
+            if "ConnectionPool" in error_msg or "NewConnectionError" in error_msg:
+                error_msg = "Cannot connect to Ollama. Please check if it's running."
+            self.response_chunk_ready.emit(f"Error: {error_msg}", self.message_id)
             self.response_complete.emit(self.message_id)
 
     def _run_openai_request(self):
@@ -203,6 +210,8 @@ class ProviderRequest(QThread):
                 stream=True
             )
 
+            response.raise_for_status()
+
             if response.status_code != 200:
                 error_msg = response.json().get("error", {}).get("message", "Unknown error")
                 self.response_chunk_ready.emit(f"Error: {error_msg}", self.message_id)
@@ -226,8 +235,15 @@ class ProviderRequest(QThread):
 
             self.response_complete.emit(self.message_id)
 
+        except requests.ConnectionError:
+            self.response_chunk_ready.emit("Error: Cannot connect to OpenAI API. Please check your connection and API endpoint.", self.message_id)
+            self.response_complete.emit(self.message_id)
         except Exception as e:
-            self.response_chunk_ready.emit(f"Error: {str(e)}", self.message_id)
+            # Simplify generic error messages
+            error_msg = str(e)
+            if "ConnectionPool" in error_msg or "NewConnectionError" in error_msg:
+                error_msg = "Cannot connect to API endpoint. Please check your connection and settings."
+            self.response_chunk_ready.emit(f"Error: {error_msg}", self.message_id)
             self.response_complete.emit(self.message_id)
 
     def process_image(self, image):
@@ -303,82 +319,72 @@ def request_models(provider=None):
     if provider is None:
         provider = get_provider()
     
-    # Add debug print
     if DEBUG:
         print(f"Requesting models for provider: {provider}")
     
-    if provider == "ollama":
-        try:
-            start_time = datetime.now()
-            ollama_url = get_ollama_url()
-            
-            if not ollama_url:
+    try:
+        start_time = datetime.now()
+        
+        # Common configuration
+        request_config = {
+            "timeout": 0.5,
+            "headers": {"Accept": "application/json"}
+        }
+        
+        if provider == "ollama":
+            base_url = get_ollama_url()
+            if not base_url:
                 return ["Please configure Ollama URL"]
-                
-            response = requests.get(
-                f"{ollama_url}/api/tags",
-                timeout=0.5,
-                headers={
-                    "Connection": "close",
-                    "Accept": "application/json",
-                },
-            )
-            response.raise_for_status()
             
-            if not response.json().get("models"):
-                return ["No models found"]
-                
-            models = [model["name"] for model in response.json()["models"]]
-            elapsed = (datetime.now() - start_time).total_seconds()
-            print(f"Loading models took {elapsed:.2f} seconds")
-            return models if models else ["No models found"]
+            request_config["url"] = f"{base_url}/api/tags"
+            request_config["headers"]["Connection"] = "close"
             
-        except requests.Timeout:
-            print("Timeout loading models")
-            return ["Error loading models"]
-        except requests.ConnectionError:
-            print("Connection error loading models")
-            return ["Error loading models"]
-        except Exception as e:
-            print(f"Error loading models: {e}")
-            return ["Error loading models"]
-            
-    elif provider == "openai":
-        try:
+        elif provider == "openai":
             api_key = get_openai_key()
-            api_url = get_openai_url()
+            base_url = get_openai_url()
             
             if not api_key:
                 return ["Please configure OpenAI API key"]
-            if not api_url:
+            if not base_url:
                 return ["Please configure OpenAI URL"]
-
-            headers = {
+                
+            request_config["url"] = f"{base_url}/models"
+            request_config["headers"].update({
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json"
-            }
+            })
             
-            response = requests.get(
-                f"{api_url}/models",
-                headers=headers,
-                timeout=0.5
-            )
-
-            response.raise_for_status()
+        else:
+            return [f"Invalid provider: {provider}"]
+        
+        # Make the request
+        response = requests.get(**request_config)
+        response.raise_for_status()
+        
+        # Parse response based on provider
+        if provider == "ollama":
+            models = [model["name"] for model in response.json().get("models", [])]
+        else:  # openai
+            models = [model["id"] for model in response.json().get("data", [])]
+            models = sorted(models)
+        
+        if DEBUG:
+            elapsed = (datetime.now() - start_time).total_seconds()
+            print(f"Loading models took {elapsed:.2f} seconds")
+            if provider == "openai":
+                print(response.json().get("data", []))
+        
+        return models if models else [f"No {'compatible ' if provider == 'openai' else ''}models found"]
             
-            # Remove duplicate models assignment and status check
-            models = response.json().get("data", [])      
-            chat_models = [model["id"] for model in models]
-
-            if DEBUG:   
-                print(models)  # Debug print
-                
-            return sorted(chat_models) if chat_models else ["No compatible models found"]
-                
-        except requests.ConnectionError:
-            return ["Cannot connect to OpenAI API"]
-        except Exception as e:
-            print(f"Error loading OpenAI models: {e}")
-            return ["Error loading OpenAI models"]
-    else:
-        return [f"Invalid provider: {provider}"]
+    except requests.Timeout:
+        if DEBUG:
+            print("Timeout loading models")
+        return ["Error loading models"]
+    except requests.ConnectionError:
+        if DEBUG:
+            print(f"Cannot connect to {provider.title()} API")
+        return [f"Cannot connect to {provider.title()} API"]
+    except Exception as e:
+        if DEBUG:
+            print(f"Error loading {provider} models: {e}")
+        return [f"Error loading {provider.title()} models"]

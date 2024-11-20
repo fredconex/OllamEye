@@ -54,8 +54,10 @@ from utils.provider_utils import (
 from utils.settings_manager import get_default_model
 
 DEBUG = "-debug" in sys.argv
-   
+
+
 class PixelChat(QWidget):
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         screen = QApplication.primaryScreen().availableGeometry()
@@ -74,9 +76,9 @@ class PixelChat(QWidget):
         self.gradient_speed = 0
 
         # Initialize a timer to check model capabilities
-        self.model_check_timer = QTimer(self)
-        self.model_check_timer.timeout.connect(self.update_screenshot_button_visibility)
-        self.model_check_timer.start(1000)  # Check every second
+        self.vision_model_check_timer = QTimer(self)
+        self.vision_model_check_timer.timeout.connect(self.update_screenshot_button_visibility)
+        self.vision_model_check_timer.start(1000)  # Check every second
 
         # Current sizes can change when user resizes the window
         self.compact_size = QSize(400, 800)
@@ -120,8 +122,7 @@ class PixelChat(QWidget):
         # Add provider status check timer
         self.provider_check_timer = QTimer(self)
         self.provider_check_timer.timeout.connect(self.chat_box.check_provider_status)
-        self.provider_check_timer.start(1000) # 1 second for the initial check
-        self.provider_online = False
+        self.provider_check_timer.start(30000) # 30 seconds as default
         self.provider_status_displayed = False
 
         # Add these new attributes for multiple images
@@ -499,7 +500,7 @@ class PixelChat(QWidget):
     def send_message(self):
         """Handle sending a message."""
         message = self.input_field.toPlainText().strip()
-        
+
         # Don't send if there's no message and no images
         if not message and not self.prompt_images:
             return

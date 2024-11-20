@@ -382,28 +382,28 @@
             }
         }
 
-        // Add this new function
+        // Update provider status
         function updateProviderStatus(providerStatus) {
             const statusMessage = document.getElementById('status-message');
             if (providerStatus.online) {
-                statusMessage.textContent = 'Provider is online. Start a conversation!';
+                statusMessage.textContent = 'Online, Start a conversation!';
                 statusMessage.style.color = '#888';  // Original color
             } else {
                 provider = providerStatus.provider.charAt(0).toUpperCase() + providerStatus.provider.slice(1);
-                statusMessage.textContent = `Provider is offline, waiting...`;
+                statusMessage.textContent = `Offline, retrying connection...`;
                 statusMessage.style.color = '#ff4444';  // Red color for offline status
             }
         }
 
-        // Add these new functions at the top level of your script section
+        // Update theme colors
         function updateThemeColors(colors) {
-        // Update body background
-        document.body.style.backgroundColor = colors.backgroundColor;
-        
-        // Update message styles
-        const style = document.createElement('style');
-        style.textContent = `
-            .message {
+            // Update body background
+            document.body.style.backgroundColor = colors.backgroundColor;
+            
+            // Update message styles
+            const style = document.createElement('style');
+            style.textContent = `
+                .message {
                 background-color: ${colors.messageBackgroundColor};
             }
             .message.user {
@@ -423,19 +423,19 @@
                 background-color: ${colors.messageBackgroundColor};
             }
             .action-button:hover {
-                background-color: ${colors.assistantBackgroundColor};
-        }
-        `;
+                    background-color: ${colors.assistantBackgroundColor};
+            }
+            `;
         
-        // Remove any previous dynamic styles
-        const existingStyle = document.getElementById('dynamic-colors');
-        if (existingStyle) {
-            existingStyle.remove();
-        }
-        
-        // Add new styles
-        style.id = 'dynamic-colors';
-        document.head.appendChild(style);
+            // Remove any previous dynamic styles
+            const existingStyle = document.getElementById('dynamic-colors');
+            if (existingStyle) {
+                existingStyle.remove();
+            }
+            
+            // Add new styles
+            style.id = 'dynamic-colors';
+            document.head.appendChild(style);
     }
 
     </script>
