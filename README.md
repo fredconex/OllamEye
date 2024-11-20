@@ -25,8 +25,10 @@ cd ./PixelLlama
 Execution of run.bat will create a new environment, install the required packages automatically and launch PixelLlama.
 
 # Screenshots
-![Captura de tela 2024-10-28 155100](https://github.com/user-attachments/assets/efbb270c-7bd4-4ba6-80b2-5b8cc05c35f8)
-![Captura de tela 2024-10-28 154954](https://github.com/user-attachments/assets/4a772b6e-519b-4551-8d86-fe39a98915b1)
+![Captura de tela 2024-11-20 103916](https://github.com/user-attachments/assets/ed94da05-c29f-4dd6-b2e7-f141d9eece7d)
+![Captura de tela 2024-11-19 191349](https://github.com/user-attachments/assets/f11eb11b-6f75-4598-9925-82b95a6450eb)
+![Captura de tela 2024-11-19 191331](https://github.com/user-attachments/assets/d0c1845a-f811-4726-873a-151426b5ab8c)
+![Captura de tela 2024-11-19 191422](https://github.com/user-attachments/assets/613427c7-c10e-4af0-bbbd-75fdc01672a2)
 
 
 # Donate
