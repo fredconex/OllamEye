@@ -456,6 +456,7 @@ class ChatBox(QWidget):
         self.chat_instance.update_gradient_state()
         load_svg_button_icon(self.chat_instance.send_btn, ".\\icons\\send.svg")
         self.chat_instance.send_btn.setObjectName("sendButton")                
+        self.chat_instance.input_field.setEnabled(True)
 
     def rebuild_chat_content(self):
         """Reconstruct chat_content based on messages."""
@@ -809,6 +810,7 @@ class ChatBox(QWidget):
             thread.start()
 
             # Update UI state
+            self.chat_instance.input_field.setEnabled(False)
             self.is_receiving = True
             self.chat_instance.update_gradient_state()
             load_svg_button_icon(self.chat_instance.send_btn, ".\\icons\\stop.svg")
@@ -816,6 +818,9 @@ class ChatBox(QWidget):
 
         except Exception as e:
             print(f"Error in start_provider_request: {str(e)}")
+            
+            self.chat_instance.input_field.setEnabled(True)
+
             if DEBUG:
                 import traceback
                 traceback.print_exc()
