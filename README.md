@@ -26,14 +26,14 @@ Execution of run.bat will create a new environment, install the required package
 
 # Installation (Linux)
 In the terminal
-```bash
-git clone https://github.com/fredconex/PixelLlama.git # clone repo 
-cd PixelLlama
-python3 -m venv .venv #create virtual env
-source .venv/bin/activate # activate virtual env 
-pip install -r requirements.txt #install dependencies
+
+git clone https://github.com/fredconex/PixelLlama.git # clone repo  
+cd PixelLlama  
+python3 -m venv .venv #create virtual env  
+source .venv/bin/activate # activate virtual env   
+pip install -r requirements.txt #install dependencies  
 python main.py #start script
-```
+
 
 
 # Screenshots
