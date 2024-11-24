@@ -24,6 +24,18 @@ cd ./PixelLlama
 
 Execution of run.bat will create a new environment, install the required packages automatically and launch PixelLlama.
 
+# Installation (Linux)
+In the terminal
+```bash
+git clone https://github.com/fredconex/PixelLlama.git # clone repo 
+cd PixelLlama
+python3 -m venv .venv #create virtual env
+source .venv/bin/activate # activate virtual env 
+pip install -r requirements.txt #install dependencies
+python main.py #start script
+```
+
+
 # Screenshots
 <img width=256px src="https://github.com/user-attachments/assets/ed94da05-c29f-4dd6-b2e7-f141d9eece7d"/>
 <img width=256px src="https://github.com/user-attachments/assets/f11eb11b-6f75-4598-9925-82b95a6450eb"/>
