@@ -723,6 +723,9 @@ class PixelChat(QWidget):
             - (screen.bottom() - current_rect.bottom())
         )
 
+        # Ensure new_y is not less than screen.top()
+        new_y = max(screen.top(), new_y)
+
         new_rect = QRect(new_x, new_y, new_size.width() + 1, new_size.height() + 1)
         self.setGeometry(new_rect)
         self.is_expanded = not self.is_expanded
