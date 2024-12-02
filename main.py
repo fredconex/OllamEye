@@ -5,6 +5,7 @@
 
 import os
 import sys
+from pathlib import Path
 from math import cos, sin, radians
 from gui.settings import SettingsPage, get_base_model_name, load_svg_button_icon
 from gui.prompt_box import PromptBox
@@ -48,18 +49,17 @@ from PyQt6.QtGui import (
 )
 
 from utils.screenshot_utils import ScreenshotSelector, process_image
-from utils.provider_utils import ( 
-    request_models
-)
+from utils.provider_utils import request_models
 from utils.settings_manager import get_default_model
 
 DEBUG = "-debug" in sys.argv
 
 
 class PixelChat(QWidget):
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.ICONS = Path() / "icons"
         screen = QApplication.primaryScreen().availableGeometry()
 
         # Add thumbnail size constants
@@ -71,18 +71,22 @@ class PixelChat(QWidget):
         # Add these lines near the start of __init__
         self.provider_online = False
         self.gradient_angle = 0
-        self.gradient_color1 = "#1E1E1E" 
+        self.gradient_color1 = "#1E1E1E"
         self.gradient_color2 = "#1E1E1E"
         self.gradient_speed = 0
 
         # Initialize a timer to check model capabilities
         self.vision_model_check_timer = QTimer(self)
-        self.vision_model_check_timer.timeout.connect(self.update_screenshot_button_visibility)
+        self.vision_model_check_timer.timeout.connect(
+            self.update_screenshot_button_visibility
+        )
         self.vision_model_check_timer.start(1000)  # Check every second
 
         # Current sizes can change when user resizes the window
         self.compact_size = QSize(400, 800)
-        self.expanded_size = QSize(int(screen.width() * 0.5), int(screen.height() * 0.75))
+        self.expanded_size = QSize(
+            int(screen.width() * 0.5), int(screen.height() * 0.75)
+        )
 
         # Store original sizes
         self.original_compact_size = self.compact_size
@@ -95,7 +99,7 @@ class PixelChat(QWidget):
         self.sidebar_expanded = True
         self.previous_geometry = None
         self.animation = None
-        self.selected_model = None # Model used with @model_name
+        self.selected_model = None  # Model used with @model_name
         self.active_model = None
         self.dragging = False
         self.drag_start_position = None
@@ -122,7 +126,7 @@ class PixelChat(QWidget):
         # Add provider status check timer
         self.provider_check_timer = QTimer(self)
         self.provider_check_timer.timeout.connect(self.chat_box.check_provider_status)
-        self.provider_check_timer.start(30000) # 30 seconds as default
+        self.provider_check_timer.start(30000)  # 30 seconds as default
         self.provider_status_displayed = False
 
         # Add these new attributes for multiple images
@@ -131,7 +135,7 @@ class PixelChat(QWidget):
         self.thumbnail_containers = []  # List to store thumbnail containers
 
         # Create thumbnail containers
-        for i in range(self.MAX_IMAGES):
+        for _ in range(self.MAX_IMAGES):
             container = self.create_thumbnail_container()
             self.thumbnail_containers.append(container)
             container.hide()
@@ -140,14 +144,16 @@ class PixelChat(QWidget):
         """Create a new thumbnail container with label and delete button."""
         container = QWidget()
         container.setFixedSize(self.THUMBNAIL_SIZE, self.THUMBNAIL_SIZE)
-        
+
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 8, 8, 0)
         layout.setSpacing(0)
 
         # Create label container
         label_container = QWidget(container)
-        label_container.setFixedSize(self.THUMBNAIL_INNER_SIZE, self.THUMBNAIL_INNER_SIZE)
+        label_container.setFixedSize(
+            self.THUMBNAIL_INNER_SIZE, self.THUMBNAIL_INNER_SIZE
+        )
         label_layout = QHBoxLayout(label_container)
         label_layout.setContentsMargins(0, 0, 0, 0)
         label_layout.setSpacing(0)
@@ -155,7 +161,9 @@ class PixelChat(QWidget):
 
         # Add thumbnail label
         thumbnail_label = QLabel()
-        thumbnail_label.setFixedSize(self.THUMBNAIL_INNER_SIZE, self.THUMBNAIL_INNER_SIZE)
+        thumbnail_label.setFixedSize(
+            self.THUMBNAIL_INNER_SIZE, self.THUMBNAIL_INNER_SIZE
+        )
         thumbnail_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         thumbnail_label.setStyleSheet("background-color: transparent;")
         label_layout.addWidget(thumbnail_label)
@@ -169,9 +177,13 @@ class PixelChat(QWidget):
         delete_btn.setObjectName("deleteThumbnailButton")
 
         delete_btn.setStyleSheet(self.styleSheet())
-        load_svg_button_icon(delete_btn, ".\\icons\\clear.svg")
+        load_svg_button_icon(delete_btn, self.ICONS / "clear.svg")
         # Position the delete button
-        btn_position = self.THUMBNAIL_INNER_SIZE - self.THUMBNAIL_BTN_SIZE + self.THUMBNAIL_BTN_MARGIN
+        btn_position = (
+            self.THUMBNAIL_INNER_SIZE
+            - self.THUMBNAIL_BTN_SIZE
+            + self.THUMBNAIL_BTN_MARGIN
+        )
         delete_btn.move(btn_position, self.THUMBNAIL_BTN_MARGIN)
         delete_btn.raise_()
 
@@ -180,8 +192,6 @@ class PixelChat(QWidget):
         container.delete_btn = delete_btn
 
         return container
-    
-
 
     def initUI(self):
         # Remove border and set window to stay on top
@@ -195,7 +205,11 @@ class PixelChat(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
         # Load the stylesheet
-        style_path = os.path.join(os.path.dirname(__file__), f""".\\themes\\{load_settings_from_file().get("theme", "dark")}.qss""")
+        style_path = (
+            Path(__file__).parent
+            / f"themes/{load_settings_from_file().get('theme', 'dark')}.qss"
+        )
+
         with open(style_path, "r") as style_file:
             self.setStyleSheet(style_file.read())
 
@@ -258,9 +272,9 @@ class PixelChat(QWidget):
         self.monitor_btn.setToolTip("Switch Monitor")
         self.monitor_btn.setObjectName("monitorButton")
         self.monitor_btn.setStyleSheet(self.styleSheet())
-        load_svg_button_icon(self.monitor_btn, ".\\icons\\monitor.svg")
+        load_svg_button_icon(self.monitor_btn, self.ICONS / "monitor.svg")
         self.monitor_btn.clicked.connect(self.switch_monitor)
-       
+
         # Hide if there's only one monitor
         if len(QApplication.screens()) > 1:
             self.monitor_btn.show()
@@ -276,7 +290,7 @@ class PixelChat(QWidget):
         self.clear_btn.setObjectName("clearButton")
         self.clear_btn.setStyleSheet(self.styleSheet())
         self.clear_btn.clicked.connect(self.chat_box.clear_chat)
-        load_svg_button_icon(self.clear_btn, ".\\icons\\clear.svg")
+        load_svg_button_icon(self.clear_btn, self.ICONS / "clear.svg")
         header.addWidget(self.clear_btn)
 
         # Add settings button
@@ -285,8 +299,8 @@ class PixelChat(QWidget):
         self.settings_btn.setToolTip("Settings")
         self.settings_btn.setObjectName("settingsButton")
         self.settings_btn.setStyleSheet(self.styleSheet())
-        
-        load_svg_button_icon(self.settings_btn, ".\\icons\\settings.svg")
+
+        load_svg_button_icon(self.settings_btn, self.ICONS / "settings.svg")
 
         self.settings_btn.clicked.connect(self.toggle_settings)
         header.addWidget(self.settings_btn)
@@ -299,7 +313,7 @@ class PixelChat(QWidget):
         self.close_btn.clicked.connect(self.handle_close_button_click)
         self.close_btn.setStyleSheet(self.styleSheet())
 
-        load_svg_button_icon(self.close_btn, ".\\icons\\close.svg")
+        load_svg_button_icon(self.close_btn, self.ICONS / "close.svg")
         header.addWidget(self.close_btn)
 
         widget_layout.addLayout(header)
@@ -313,7 +327,7 @@ class PixelChat(QWidget):
         self.toggle_btn.clicked.connect(self.toggle_window_size)
         self.toggle_btn.setStyleSheet(self.styleSheet())
 
-        load_svg_button_icon(self.toggle_btn, ".\\icons\\zoom_in.svg")
+        load_svg_button_icon(self.toggle_btn, self.ICONS / "zoom_in.svg")
 
         # Add App label and version
         app_label_container = QWidget()
@@ -361,29 +375,30 @@ class PixelChat(QWidget):
         thumbnail_layout = QHBoxLayout(self.thumbnail_container)
         thumbnail_layout.setContentsMargins(0, 8, 8, 0)
         thumbnail_layout.setSpacing(0)
-        
+
         # Add camera icon button
         self.screenshot_btn = QPushButton()
         self.screenshot_btn.setFixedSize(30, 30)
         self.screenshot_btn.setToolTip("Take Screenshot")
         self.screenshot_btn.clicked.connect(self.take_screenshot)
         self.screenshot_btn.setStyleSheet(self.styleSheet())
-        load_svg_button_icon(self.screenshot_btn, ".\\icons\\camera.svg")
+        load_svg_button_icon(self.screenshot_btn, self.ICONS / "camera.svg")
         self.original_button_style = self.screenshot_btn.styleSheet()
-
 
         self.send_btn = QPushButton()
         self.send_btn.setFixedSize(30, 30)
         self.send_btn.setText("")
         self.send_btn.setObjectName("sendButton")
         self.send_btn.setStyleSheet(self.styleSheet())
-        load_svg_button_icon(self.send_btn, ".\\icons\\send.svg")
+        load_svg_button_icon(self.send_btn, self.ICONS / "send.svg")
         self.send_btn.clicked.connect(self.send_or_stop_message)
 
         # Add components to input layout
         self.input_layout.addWidget(self.screenshot_btn)
         self.input_layout.addWidget(self.thumbnail_container)
-        self.input_layout.addWidget(self.input_field, 1)  # Give the input field more space
+        self.input_layout.addWidget(
+            self.input_field, 1
+        )  # Give the input field more space
         self.input_layout.addWidget(self.send_btn)
 
         # Add the input widget to the chat layout
@@ -392,7 +407,6 @@ class PixelChat(QWidget):
         # Update chat layout stretch factors
         chat_layout.setStretch(0, 1)  # Give chat display stretch priority
         chat_layout.setStretch(1, 0)  # Keep input area at minimum required size
-
 
         # Create and add the settings interface
         self.settings_interface = SettingsPage(self, chat_instance=self)
@@ -463,35 +477,38 @@ class PixelChat(QWidget):
                 }}
             """
 
-        self.findChild(QWidget, "outerWidget").setStyleSheet(gradient_style)        
+        self.findChild(QWidget, "outerWidget").setStyleSheet(gradient_style)
 
     def update_screenshot_button_visibility(self):
         """Update the visibility of the screenshot button based on the current model's capabilities."""
         if self.active_model is not None:
             if self.active_model is not None:
                 base_model = get_base_model_name(self.active_model)
-                self.screenshot_btn.setVisible(base_model in self.settings_interface.vision_capable_models)
+                self.screenshot_btn.setVisible(
+                    base_model in self.settings_interface.vision_capable_models
+                )
         else:
             if get_default_model():
                 base_model = get_base_model_name(get_default_model())
-                self.screenshot_btn.setVisible(base_model in self.settings_interface.vision_capable_models)
+                self.screenshot_btn.setVisible(
+                    base_model in self.settings_interface.vision_capable_models
+                )
 
     def toggle_settings(self):
-        """ Toggle between chat and settings interfaces. """
+        """Toggle between chat and settings interfaces."""
         if self.stacked_widget.currentWidget() == self.settings_interface:
-            #self.stacked_widget.setCurrentWidget(self.chat_interface)
+            # self.stacked_widget.setCurrentWidget(self.chat_interface)
             self.settings_interface.cancel_settings()
-            load_svg_button_icon(self.settings_btn, ".\\icons\\settings.svg")
+            load_svg_button_icon(self.settings_btn, self.ICONS / "settings.svg")
         else:
             self.stacked_widget.setCurrentWidget(self.settings_interface)
-            load_svg_button_icon(self.settings_btn, ".\\icons\\go_previous.svg")
+            load_svg_button_icon(self.settings_btn, self.ICONS / "go_previous.svg")
 
             # Load settings
             self.settings_interface.load_settings()
 
-
     def send_or_stop_message(self):
-        """ Send or stop receiving messages. """
+        """Send or stop receiving messages."""
         if self.chat_box.is_receiving:
             self.stop_receiving()
         else:
@@ -516,7 +533,7 @@ class PixelChat(QWidget):
                 message = parts[1] if len(parts) > 1 else ""
                 # Set the active model for this conversation
                 self.chat_box.active_model = model_to_use
-        
+
         # If no model was specified with @, use active_model or default
         if model_to_use is None:
             model_to_use = self.chat_box.active_model or get_default_model()
@@ -525,7 +542,7 @@ class PixelChat(QWidget):
         content = []
         if message:
             content.append({"type": "text", "text": message})
-        
+
         # Add images if any
         if self.prompt_images:
             for image in self.prompt_images:
@@ -534,10 +551,12 @@ class PixelChat(QWidget):
                 buffer.open(QIODevice.OpenModeFlag.WriteOnly)
                 image.save(buffer, "PNG")
                 image_base64 = byte_array.toBase64().data().decode()
-                content.append({
-                    "type": "image",
-                    "image_url": {"url": f"data:image/png;base64,{image_base64}"}
-                })
+                content.append(
+                    {
+                        "type": "image",
+                        "image_url": {"url": f"data:image/png;base64,{image_base64}"},
+                    }
+                )
 
         # Send to chat box with the specified model
         self.chat_box.send_message(content, model_to_use)
@@ -546,7 +565,9 @@ class PixelChat(QWidget):
         self.reset_input_area()
 
         # Return focus to input field
-        QTimer.singleShot(100, lambda: self.input_field.setFocus(Qt.FocusReason.OtherFocusReason))
+        QTimer.singleShot(
+            100, lambda: self.input_field.setFocus(Qt.FocusReason.OtherFocusReason)
+        )
         QTimer.singleShot(100, self.activateWindow)
 
     def remove_image(self):
@@ -562,7 +583,7 @@ class PixelChat(QWidget):
     def _delayed_screenshot(self):
         if DEBUG:
             print("Starting delayed screenshot process")
-        
+
         # Start with the screen containing the cursor
         cursor_pos = QCursor.pos()
         current_screen = None
@@ -570,10 +591,10 @@ class PixelChat(QWidget):
             if screen.geometry().contains(cursor_pos):
                 current_screen = screen
                 break
-        
+
         if not current_screen:
             current_screen = QApplication.primaryScreen()
-        
+
         # Take initial screenshot of current screen
         screen_geometry = current_screen.geometry()
         screenshot = current_screen.grabWindow(
@@ -581,9 +602,9 @@ class PixelChat(QWidget):
             0,  # Use local coordinates
             0,
             screen_geometry.width(),
-            screen_geometry.height()
+            screen_geometry.height(),
         )
-        
+
         self.screenshot_selector = ScreenshotSelector(screenshot)
         self.screenshot_selector.screenshot_taken.connect(self.handle_screenshot)
         self.screenshot_selector.setGeometry(screen_geometry)
@@ -603,17 +624,19 @@ class PixelChat(QWidget):
     def handle_screenshot(self, screenshot):
         """Handle new screenshot addition."""
         if len(self.prompt_images) >= self.MAX_IMAGES:
-            self.show_error_message("Maximum Screenshots", 
-                                  f"Maximum of {self.MAX_IMAGES} screenshots allowed.")
+            self.show_error_message(
+                "Maximum Screenshots",
+                f"Maximum of {self.MAX_IMAGES} screenshots allowed.",
+            )
             return
 
         # Process the screenshot
         processed_screenshot = process_image(screenshot)
         self.prompt_images.append(processed_screenshot)
-        
+
         # Update thumbnails
         self.update_thumbnails()
-        
+
         self.show()
         QTimer.singleShot(200, self._post_screenshot_actions)
 
@@ -626,7 +649,9 @@ class PixelChat(QWidget):
                 container.show()
                 # Connect delete button if not already connected
                 if not container.delete_btn.receivers(container.delete_btn.clicked):
-                    container.delete_btn.clicked.connect(lambda checked, idx=i: self.remove_image(idx))
+                    container.delete_btn.clicked.connect(
+                        lambda checked, idx=i: self.remove_image(idx)
+                    )
             else:
                 container.hide()
 
@@ -637,24 +662,26 @@ class PixelChat(QWidget):
         """Update a single thumbnail container with the screenshot."""
         max_size = self.THUMBNAIL_INNER_SIZE
         original_size = screenshot.size()
-        scaled_size = original_size.scaled(max_size, max_size, Qt.AspectRatioMode.KeepAspectRatio)
-        
+        scaled_size = original_size.scaled(
+            max_size, max_size, Qt.AspectRatioMode.KeepAspectRatio
+        )
+
         thumbnail = screenshot.scaled(
             scaled_size.width(),
             scaled_size.height(),
             Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation
+            Qt.TransformationMode.SmoothTransformation,
         )
-        
+
         display_pixmap = QPixmap(max_size, max_size)
         display_pixmap.fill(Qt.GlobalColor.transparent)
-        
+
         painter = QPainter(display_pixmap)
         x = (max_size - scaled_size.width()) // 2
         y = (max_size - scaled_size.height()) // 2
         painter.drawImage(x, y, thumbnail)
         painter.end()
-        
+
         container.thumbnail_label.setPixmap(display_pixmap)
 
     def remove_image(self, index):
@@ -691,7 +718,6 @@ class PixelChat(QWidget):
         if DEBUG:
             print("Post-screenshot actions completed")  # Debug print
 
-    
     def position_window(self):
         screen = QApplication.primaryScreen().availableGeometry()
         padding = 20  # Adjust this value to change the padding
@@ -709,11 +735,11 @@ class PixelChat(QWidget):
         if self.is_expanded:
             self.expanded_size = current_rect.size()
             new_size = self.compact_size
-            load_svg_button_icon(self.toggle_btn, ".\\icons\\zoom_in.svg")
+            load_svg_button_icon(self.toggle_btn, self.ICONS / "zoom_in.svg")
         else:
             self.compact_size = current_rect.size()
             new_size = self.expanded_size
-            load_svg_button_icon(self.toggle_btn, ".\\icons\\zoom_out.svg")
+            load_svg_button_icon(self.toggle_btn, self.ICONS / "zoom_out.svg")
         new_x = (
             screen.right() - new_size.width() - (screen.right() - current_rect.right())
         )
@@ -732,7 +758,7 @@ class PixelChat(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self.update_vertical_button_position() 
+        self.update_vertical_button_position()
 
     def reset_input_area(self):
         """Reset input area by clearing text and removing all images."""
@@ -753,7 +779,7 @@ class PixelChat(QWidget):
         self.chat_box.rebuild_chat_content()
         self.chat_box.is_receiving = False
         self.send_btn.setObjectName("sendButton")
-        load_svg_button_icon(self.send_btn, ".\\icons\\send.svg")
+        load_svg_button_icon(self.send_btn, self.ICONS / "send.svg")
 
     def terminate_application(self):
         self.tray_icon.hide()
@@ -767,7 +793,7 @@ class PixelChat(QWidget):
         tray_menu = QMenu()
         tray_menu.setObjectName("trayMenu")
         tray_menu.setStyleSheet(self.styleSheet())
-        
+
         show_hide_action = tray_menu.addAction("Show/Hide")
         quit_action = tray_menu.addAction("Quit")
 
@@ -819,7 +845,7 @@ class PixelChat(QWidget):
         self.vertical_button.setStyleSheet(self.styleSheet())
 
         # Create and set the initial arrow icon
-        load_svg_button_icon(self.vertical_button, ".\\icons\\right_arrow.svg")
+        load_svg_button_icon(self.vertical_button, self.ICONS / "right_arrow.svg")
         self.vertical_button.setIconSize(QSize(24, 24))  # Adjust size as needed
 
         self.vertical_button.clicked.connect(self.toggle_sidebar)
@@ -885,7 +911,7 @@ class PixelChat(QWidget):
             new_rect = QRect(new_x, new_y, collapsed_width, collapsed_height)
             self.animation.setEndValue(new_rect)
             self.sidebar_expanded = False
-            load_svg_button_icon(self.vertical_button, ".\\icons\\left_arrow.svg")
+            load_svg_button_icon(self.vertical_button, self.ICONS / "left_arrow.svg")
 
             # Hide all controls except the vertical button
             self.chat_display.hide()
@@ -903,7 +929,7 @@ class PixelChat(QWidget):
             if self.previous_geometry:
                 self.animation.setEndValue(self.previous_geometry)
             self.sidebar_expanded = True
-            load_svg_button_icon(self.vertical_button, ".\\icons\\right_arrow.svg")
+            load_svg_button_icon(self.vertical_button, self.ICONS / "right_arrow.svg")
 
             # Show all controls
             self.chat_display.show()
@@ -913,7 +939,7 @@ class PixelChat(QWidget):
             self.clear_btn.show()
             self.settings_btn.show()
             self.close_btn.show()
-            self.toggle_btn.show() 
+            self.toggle_btn.show()
 
             # Show monitor button if there are multiple monitors
             if len(QApplication.screens()) > 1:
@@ -976,31 +1002,31 @@ class PixelChat(QWidget):
             if event.type() == QEvent.Type.MouseButtonDblClick:
                 if event.button() == Qt.MouseButton.LeftButton:
                     self.restore_size()
-                    return True            
-        
+                    return True
+
         return super().eventFilter(obj, event)
 
     def handle_pasted_image(self, image):
         """Process and add a pasted or dropped image."""
         if len(self.prompt_images) >= self.MAX_IMAGES:
-            self.show_error_message("Maximum Images", 
-                                  f"Maximum of {self.MAX_IMAGES} images allowed.")
+            self.show_error_message(
+                "Maximum Images", f"Maximum of {self.MAX_IMAGES} images allowed."
+            )
             return
 
         # Process the image using the same function as images
         processed_image = process_image(image)
         self.prompt_images.append(processed_image)
-        
+
         # Update thumbnails
         self.update_thumbnails()
-        
+
         # Update placeholder text
         self.input_field.setPlaceholderText("Image added. Type your message...")
-        
+
         # Force focus back to input field
         self.input_field.setFocus(Qt.FocusReason.OtherFocusReason)
         self.activateWindow()
-    
 
     def restore_size(self):
         """Restore the window to its original size based on expansion state."""
@@ -1054,7 +1080,7 @@ class PixelChat(QWidget):
             self.input_field.setFixedHeight(new_height)
 
             # Force layout update without modifying chat display height
-            self.chat_interface.layout().update()  
+            self.chat_interface.layout().update()
 
     def switch_monitor(self):
         """Switch the window to the next available monitor and align to bottom-right corner."""
@@ -1087,10 +1113,11 @@ class PixelChat(QWidget):
         new_y = available_geometry.bottom() - current_geometry.height() - padding
 
         # Move window to new position
-        self.setGeometry(new_x, new_y, 
-                        current_geometry.width(), 
-                        current_geometry.height())
-        
+        self.setGeometry(
+            new_x, new_y, current_geometry.width(), current_geometry.height()
+        )
+
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     ex = PixelChat()

@@ -2,11 +2,20 @@ import uuid
 from PyQt6.QtWidgets import QWidget, QVBoxLayout
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
-from PyQt6.QtCore import QObject, pyqtSlot, QByteArray, QBuffer, QIODevice, QThread, QTimer
+from PyQt6.QtCore import (
+    QObject,
+    pyqtSlot,
+    QByteArray,
+    QBuffer,
+    QIODevice,
+    QThread,
+    QTimer,
+)
 from PyQt6.QtGui import QImage, QIcon
 import os
 import json
 import base64
+from pathlib import Path
 from datetime import datetime
 from gui.settings import get_base_model_name, load_svg_button_icon
 from utils.settings_manager import get_default_model
@@ -15,7 +24,8 @@ from collections import OrderedDict
 from utils.provider_utils import ProviderRequest
 import re
 
-DEBUG = "-debug" in __import__('sys').argv
+DEBUG = "-debug" in __import__("sys").argv
+
 
 class Message:
     def __init__(self, role, content=None, model=None, message_id=None):
@@ -46,28 +56,30 @@ class Message:
         # Remove all messages after this one
         if self.role == "user":
             self.parent_chat.remove_subsequent_messages(original_id)
-            
+
         # Ensure we keep the same ID when regenerating
         self.id = original_id
         self.parent_chat.messages[original_id] = self
 
         # Create or update child message for assistant response
         if not self.child_message and self.role == "user":
-            self.child_message = Message("assistant", model=self.parent_chat.active_model)
+            self.child_message = Message(
+                "assistant", model=self.parent_chat.active_model
+            )
             self.child_message.parent_chat = self.parent_chat
         elif original_child_id:  # Preserve child message ID if it exists
             self.child_message.id = original_child_id
-            
+
         self.parent_chat.messages[self.child_message.id] = self.child_message
 
         # Get messages up to this point
         messages_to_send = self.parent_chat.get_messages_for_request(self.id)
-        
+
         # Start the provider request
         self.parent_chat.start_provider_request(
             messages_to_send,
             self.get_images(),
-            message_id=self.child_message.id if self.child_message else None
+            message_id=self.child_message.id if self.child_message else None,
         )
 
     def regenerate(self):
@@ -86,7 +98,7 @@ class Message:
         """Find the parent message that generated this response."""
         if self.role != "assistant":
             return None
-        
+
         for msg in self.parent_chat.messages.values():
             if msg.child_message and msg.child_message.id == self.id:
                 return msg
@@ -95,15 +107,17 @@ class Message:
     def get_content(self):
         """Get the content of the message"""
         return self.content
-    
+
     def set_text(self, text):
         """Set the text content of the message"""
         self.content = [{"type": "text", "text": text}]
 
     def get_text(self):
         """Get the text content of the message"""
-        return next((item["text"] for item in self.content if item["type"] == "text"), "")
-    
+        return next(
+            (item["text"] for item in self.content if item["type"] == "text"), ""
+        )
+
     def get_images(self):
         """Extract images from message content."""
         screenshots = []
@@ -135,18 +149,19 @@ class Message:
             else:
                 # For new messages, set the content directly
                 self.content = [{"type": "text", "text": chunk}]
-                
+
             self.model = self.parent_chat.active_model or get_default_model()
-            
+
             # Update the chat display
             if self.parent_chat:
                 self.parent_chat.rebuild_chat_content()
                 self.parent_chat.update_chat_display()
-                
+
         except Exception as e:
             print(f"Error in handle_response_chunk: {str(e)}")
             if DEBUG:
                 import traceback
+
                 traceback.print_exc()
 
     def to_dict(self):
@@ -155,7 +170,7 @@ class Message:
             "role": self.role,
             "content": self.content,
             "model": self.model,
-            "id": self.id
+            "id": self.id,
         }
 
     @classmethod
@@ -165,7 +180,7 @@ class Message:
             role=data.get("role"),
             content=data.get("content"),
             model=data.get("model"),
-            message_id=data.get("id")
+            message_id=data.get("id"),
         )
         msg.parent_chat = parent_chat  # Set the parent_chat reference
         return msg
@@ -174,10 +189,10 @@ class Message:
         """Start editing this message."""
         if self.role != "user":
             return False
-            
+
         self.is_editing = True
         self.original_content = self.content.copy()  # Backup content
-        
+
         # Signal chat box to update UI
         if self.parent_chat:
             self.parent_chat.handle_edit_start(self)
@@ -187,11 +202,11 @@ class Message:
         """Cancel editing and restore original content."""
         if not self.is_editing:
             return
-            
+
         self.content = self.original_content
         self.is_editing = False
         self.original_content = None
-        
+
         if self.parent_chat:
             self.parent_chat.handle_edit_end(self)
             self.parent_chat.rebuild_chat_content()
@@ -199,12 +214,12 @@ class Message:
     def prepare_content_with_images(self):
         """Prepare message content including properly formatted images."""
         content = []
-        
+
         # Add text content if exists
         text = self.get_text()
         if text:
             content.append({"type": "text", "text": text})
-        
+
         # Add images if any
         for image in self.get_images():
             byte_array = QByteArray()
@@ -212,18 +227,20 @@ class Message:
             buffer.open(QIODevice.OpenModeFlag.WriteOnly)
             image.save(buffer, "PNG")
             image_base64 = byte_array.toBase64().data().decode()
-            content.append({
-                "type": "image",
-                "image_url": {"url": f"data:image/png;base64,{image_base64}"}
-            })
-        
+            content.append(
+                {
+                    "type": "image",
+                    "image_url": {"url": f"data:image/png;base64,{image_base64}"},
+                }
+            )
+
         return content
 
     def submit_edit(self, new_content=None):
         """Submit edited content and regenerate response."""
         if not self.is_editing:
             return
-            
+
         if new_content is not None:
             if isinstance(new_content, str):
                 self.set_text(new_content)
@@ -235,21 +252,22 @@ class Message:
 
         self.is_editing = False
         self.original_content = None
-        
+
         if self.parent_chat:
             self.parent_chat.handle_edit_end(self)
-            
+
         # Store the existing child message reference and ID
         existing_child = self.child_message
         child_id = existing_child.id if existing_child else None
-        
+
         # Clear the child message's content but preserve its ID
         if existing_child:
             existing_child.content = []
             self.child_message = existing_child  # Ensure the reference is maintained
-            
+
         # Submit to regenerate response
         self.submit()
+
 
 class Bridge(QObject):
     def __init__(self, parent_chat):
@@ -267,18 +285,21 @@ class Bridge(QObject):
             print("editMessage", message_id)
         self.parent_chat.messages[message_id].start_edit()
 
+
 class ProviderStatusThread(QThread):
     def __init__(self, settings_interface):
         super().__init__()
         self.settings_interface = settings_interface
-    
+
     def run(self):
         self.settings_interface.reload_models()
+
 
 class ChatBox(QWidget):
     def __init__(self, parent=None, chat_instance=None):
         super().__init__(parent)
         self.parent = parent
+        self.ICONS = Path(__file__).parent.parent / "icons"
 
         # Initialize state
         self.is_online_tracker = False
@@ -315,7 +336,7 @@ class ChatBox(QWidget):
 
         # Chat display
         self.chat_display = QWebEngineView()
-        
+
         layout.addWidget(self.chat_display, 1)
         self.initialize_chat_display()
 
@@ -329,21 +350,27 @@ class ChatBox(QWidget):
         self.chat_display.page().loadFinished.connect(self.onLoadFinished)
 
         # Check provider status when chat display loads and initialize timer
-        self.chat_display.loadFinished.connect(lambda: self.chat_instance.settings_interface.reload_models(update_ui=True))
-        self.chat_display.loadFinished.connect(lambda: (
-            setattr(self, 'provider_status_timer', QTimer()),
-            getattr(self, 'provider_status_timer').timeout.connect(self.check_provider_status),
-            getattr(self, 'provider_status_timer').start(1000)
-        ))
+        self.chat_display.loadFinished.connect(
+            lambda: self.chat_instance.settings_interface.reload_models(update_ui=True)
+        )
+        self.chat_display.loadFinished.connect(
+            lambda: (
+                setattr(self, "provider_status_timer", QTimer()),
+                getattr(self, "provider_status_timer").timeout.connect(
+                    self.check_provider_status
+                ),
+                getattr(self, "provider_status_timer").start(1000),
+            )
+        )
 
     def initialize_chat_display(self):
         """Initializes the chat display with HTML template and app icon"""
-        html_path = os.path.join(os.path.dirname(__file__), "..\\html\\chat_template.html")
+        html_path = Path(__file__).parent.parent / "html/chat_template.html"
         with open(html_path, "r") as file:
             initial_html = file.read()
 
         # Read and encode the app icon
-        icon_path = os.path.join(os.path.dirname(__file__), "..\\icons\\background.png")
+        icon_path = self.ICONS / "background.png"
         with open(icon_path, "rb") as icon_file:
             icon_data = icon_file.read()
             icon_base64 = base64.b64encode(icon_data).decode("utf-8")
@@ -352,7 +379,7 @@ class ChatBox(QWidget):
         initial_html = initial_html.replace("{{APP_ICON_BASE64}}", icon_base64)
 
         self.chat_display.setHtml(initial_html)
-        
+
         # Wait for page to load before updating colors
         self.chat_display.loadFinished.connect(lambda: self.update_webview_colors())
 
@@ -360,11 +387,10 @@ class ChatBox(QWidget):
         """Extract color value from QSS for given widget and property."""
         if not style:
             return None
-            
+
         try:
             match = re.search(
-                f'{widget_selector}\\s*{{[^}}]*{property_name}:\\s*([^;}}\\s]+)', 
-                style
+                f"{widget_selector}\\s*{{[^}}]*{property_name}:\\s*([^;}}\\s]+)", style
             )
             return match.group(1) if match else None
         except Exception as e:
@@ -378,14 +404,31 @@ class ChatBox(QWidget):
             return
 
         style = main_widget.styleSheet()
-        
+
         colors = {
-            'backgroundColor': self.extract_color('QWidget#mainWidget', 'background-color', style),
-            'messageBackgroundColor': self.extract_color('QWidget#chatMessage', 'background-color', style) or '#333333',
-            'assistantBackgroundColor': self.extract_color('QWidget#chatMessageAssistant', 'background-color', style) or '#222222',
-            'messageFontColor': self.extract_color('QWidget#chatMessage', 'color', style) or '#D4D4D4',
-            'userBorderColor': self.extract_color('QWidget#chatMessageUser', 'border-color', style) or '#7289DA',
-            'assistantBorderColor': self.extract_color('QWidget#chatMessageAssistant', 'border-color', style) or '#53629b'
+            "backgroundColor": self.extract_color(
+                "QWidget#mainWidget", "background-color", style
+            ),
+            "messageBackgroundColor": self.extract_color(
+                "QWidget#chatMessage", "background-color", style
+            )
+            or "#333333",
+            "assistantBackgroundColor": self.extract_color(
+                "QWidget#chatMessageAssistant", "background-color", style
+            )
+            or "#222222",
+            "messageFontColor": self.extract_color(
+                "QWidget#chatMessage", "color", style
+            )
+            or "#D4D4D4",
+            "userBorderColor": self.extract_color(
+                "QWidget#chatMessageUser", "border-color", style
+            )
+            or "#7289DA",
+            "assistantBorderColor": self.extract_color(
+                "QWidget#chatMessageAssistant", "border-color", style
+            )
+            or "#53629b",
         }
 
         # Convert the colors dict to a JavaScript object string
@@ -396,11 +439,11 @@ class ChatBox(QWidget):
         """Remove all messages that come after the specified message."""
         if message_id not in self.messages:
             return
-            
+
         # Convert to list for iteration since we'll modify the dict
         message_ids = list(self.messages.keys())
         found_message = False
-        
+
         for msg_id in message_ids:
             if found_message:
                 del self.messages[msg_id]
@@ -412,7 +455,7 @@ class ChatBox(QWidget):
         if isinstance(chunk, str) and chunk.startswith("Error:"):
             # Set provider offline if request failed
             self.chat_instance.provider_online = False
-            
+
         if DEBUG:
             print("\n=== handle_response_chunk ===")
             print(f"Incoming chunk for message ID: {message_id}")
@@ -424,15 +467,18 @@ class ChatBox(QWidget):
             # Create new message or update last message
             if not self.current_response:
                 self.current_response = chunk
-                new_msg = Message("assistant", [{"type": "text", "text": chunk}], 
-                                self.active_model or get_default_model())
+                new_msg = Message(
+                    "assistant",
+                    [{"type": "text", "text": chunk}],
+                    self.active_model or get_default_model(),
+                )
                 new_msg.parent_chat = self
                 self.messages[new_msg.id] = new_msg
             else:
                 self.current_response = chunk
                 last_msg = next(reversed(self.messages.values()))
                 last_msg.handle_response_chunk(self.current_response)
-        
+
         self.update_chat_display()
 
     def handle_response_complete(self):
@@ -441,7 +487,7 @@ class ChatBox(QWidget):
             self.current_response = "No response received from Assistant."
 
         # Get the current model being used
-        current_model = self.active_model or get_default_model()            
+        current_model = self.active_model or get_default_model()
 
         # Get the last message
         last_msg = next(reversed(self.messages.values()), None)
@@ -454,8 +500,8 @@ class ChatBox(QWidget):
         self.current_response = ""
         self.is_receiving = False
         self.chat_instance.update_gradient_state()
-        load_svg_button_icon(self.chat_instance.send_btn, ".\\icons\\send.svg")
-        self.chat_instance.send_btn.setObjectName("sendButton")                
+        load_svg_button_icon(self.chat_instance.send_btn, self.ICONS / "send.svg")
+        self.chat_instance.send_btn.setObjectName("sendButton")
 
     def rebuild_chat_content(self):
         """Reconstruct chat_content based on messages."""
@@ -467,16 +513,16 @@ class ChatBox(QWidget):
                 print(f"ID: {msg_id}")
                 print(f"Role: {msg.role}")
                 print(f"Content: {msg.get_text()[:100]}...")
-    
+
         self.chat_content = []
-        
+
         for message in self.messages.values():
             if message.role == "system":
                 continue
-            
+
             # Ensure parent_chat reference is set
             message.parent_chat = self
-            
+
             try:
                 sender = "user" if message.role == "user" else message.model
                 text_content = message.get_text()
@@ -489,7 +535,7 @@ class ChatBox(QWidget):
                         images_html += f'<img src="{img_url}" alt="Screenshot" style="max-width: 100%; height: auto; margin: 10px 0; border-radius: 8px;">'
 
                 self.chat_content.append((sender, text_content, images_html))
-                
+
             except Exception as e:
                 if DEBUG:
                     print(f"Error processing message: {str(e)}")
@@ -497,18 +543,18 @@ class ChatBox(QWidget):
 
         if DEBUG:
             print("\nFinal chat_content length:", len(self.chat_content))
-            
+
         self.update_chat_display()
 
     def handle_edit_start(self, message):
         """Handle when a message starts being edited."""
         self.current_editing_message = message
-        
+
         # Update UI to show editing state
         self.chat_instance.send_btn.setIcon(QIcon("icons/edit.png"))
-        load_svg_button_icon(self.chat_instance.send_btn, ".\\icons\\edit.svg")
+        load_svg_button_icon(self.chat_instance.send_btn, self.ICONS / "edit.svg")
         self.chat_instance.input_field.setText(message.get_text())
-        
+
         # Clear existing screenshots and add images from the message being edited
         self.chat_instance.prompt_images.clear()
         for item in message.content:
@@ -522,7 +568,7 @@ class ChatBox(QWidget):
                     self.chat_instance.prompt_images.append(qimage)
                 except Exception as e:
                     print(f"Error loading image during edit: {e}")
-        
+
         self.chat_instance.update_thumbnails()
 
     def handle_edit_end(self, message):
@@ -531,37 +577,37 @@ class ChatBox(QWidget):
         self.chat_instance.input_field.clear()
         self.chat_instance.prompt_images.clear()
         self.chat_instance.update_thumbnails()
-        load_svg_button_icon(self.chat_instance.send_btn, ".\\icons\\send.svg")
+        load_svg_button_icon(self.chat_instance.send_btn, self.ICONS / "send.svg")
 
     def handle_message_action(self, message_id, action):
         """Handle message actions (edit, regenerate, etc.)."""
         if message_id not in self.messages:
             return
-            
+
         message = self.messages[message_id]
-        
+
         if action == "edit":
             message.start_edit()
         elif action == "regenerate":
             message.regenerate()
         elif action == "cancel_edit":
             message.cancel_edit()
-             
+
     def send_message(self, content, model=None):
         """Handle sending a new message or submitting an edit."""
         if self.current_editing_message:
             self.current_editing_message.submit_edit(content)
             return
-        
+
         # Update active model if one is specified
         if model:
             self.active_model = model
-        
+
         # Create new message with the specified model
         new_message = Message("user", content, self.active_model)
         new_message.parent_chat = self
         self.messages[new_message.id] = new_message
-        
+
         # Update display and submit
         self.rebuild_chat_content()
         self.save_chat_history()
@@ -574,7 +620,9 @@ class ChatBox(QWidget):
         self.update_chat_display()
         self.chat_instance.input_field.clear()
         self.selected_screenshot = None
-        self.chat_instance.screenshot_btn.setStyleSheet(self.chat_instance.original_button_style)
+        self.chat_instance.screenshot_btn.setStyleSheet(
+            self.chat_instance.original_button_style
+        )
         self.active_model = None
         # Save empty chat history
         self.save_chat_history()
@@ -587,18 +635,22 @@ class ChatBox(QWidget):
     def check_provider_status(self):
         """Check provider status and update UI accordingly."""
         self.time_to_update_provider_status += 1
-        if self.time_to_update_provider_status > (20 if self.chat_instance.provider_online else 5):
+        if self.time_to_update_provider_status > (
+            20 if self.chat_instance.provider_online else 5
+        ):
             self.time_to_update_provider_status = 0
-            #if self.chat_instance.status_thread is None:
-            self.chat_instance.status_thread = ProviderStatusThread(self.chat_instance.settings_interface)
-            #self.chat_instance.status_thread.finished_cleanup.connect(self.cleanup_reload_thread)
+            # if self.chat_instance.status_thread is None:
+            self.chat_instance.status_thread = ProviderStatusThread(
+                self.chat_instance.settings_interface
+            )
+            # self.chat_instance.status_thread.finished_cleanup.connect(self.cleanup_reload_thread)
             self.chat_instance.status_thread.start()
         self.handle_provider_status()
 
     def cleanup_reload_thread(self, thread):
-            """Clean up the reload thread reference"""
-            if hasattr(self, 'reload_thread') and self.reload_thread == thread:
-                self.reload_thread = None
+        """Clean up the reload thread reference"""
+        if hasattr(self, "reload_thread") and self.reload_thread == thread:
+            self.reload_thread = None
 
     def handle_provider_status(self):
         """Handle the provider status results from the thread."""
@@ -617,12 +669,11 @@ class ChatBox(QWidget):
         self.is_online_tracker = provider_online
 
         # Update status in UI
-        status_message = {
-            "provider": "Unknown",
-            "online": provider_online
-        }
-        
-        self.chat_display.page().runJavaScript(f"updateProviderStatus({json.dumps(status_message)})")        
+        status_message = {"provider": "Unknown", "online": provider_online}
+
+        self.chat_display.page().runJavaScript(
+            f"updateProviderStatus({json.dumps(status_message)})"
+        )
         self.chat_instance.send_btn.setEnabled(self.chat_instance.provider_online)
 
     def onLoadFinished(self, ok):
@@ -663,16 +714,16 @@ class ChatBox(QWidget):
         """Start editing a message with the given ID."""
         print(f"\n=== edit_message ===")
         print(f"Starting edit for message ID: {message_id}")
-        
+
         if message_id not in self.messages:
             print(f"Warning: Message {message_id} not found in chat history")
             return
-        
+
         message = self.messages[message_id]
         if message.role != "user":
             print("Can only edit user messages")
             return
-        
+
         message.start_edit()
 
     def save_chat_history(self):
@@ -680,7 +731,11 @@ class ChatBox(QWidget):
         try:
             # Convert all messages to dictionaries using to_dict()
             history_data = [
-                msg.to_dict() if isinstance(msg, Message) else Message.from_dict(msg).to_dict()
+                (
+                    msg.to_dict()
+                    if isinstance(msg, Message)
+                    else Message.from_dict(msg).to_dict()
+                )
                 for msg in self.messages.values()
             ]
             self.chat_storage.save_chat_history(history_data)
@@ -688,6 +743,7 @@ class ChatBox(QWidget):
             print(f"Error saving chat history: {str(e)}")
             if DEBUG:
                 import traceback
+
                 traceback.print_exc()
 
     def update_chat_display(self):
@@ -695,9 +751,9 @@ class ChatBox(QWidget):
         DEBUG = False
         if DEBUG:
             print("\n=== update_chat_display ===")
-            
+
         chat_content = []
-        
+
         # Check if messages is empty
         if not self.messages:
             if DEBUG:
@@ -719,35 +775,37 @@ class ChatBox(QWidget):
                 # Skip system messages
                 if message.role == "system":
                     continue
-                    
+
                 sender = "user" if message.role == "user" else message.model
                 message_id = message.id
-                
+
                 if DEBUG:
                     print(f"\nProcessing message {idx}:")
                     print(f"Sender: {sender}")
                     print(f"Content: {message.content}")
-                
+
                 text_content = message.get_text()
                 images_html = ""
-                
+
                 # Process images if any
                 for item in message.content:
                     if item.get("type") == "image" and "image_url" in item:
                         img_url = item["image_url"]["url"]
                         images_html += f'<img src="{img_url}" alt="Screenshot" style="max-width: 128px; height: auto; margin: 10px 0; border-radius: 8px;">'
-                
-                chat_content.append({
-                    "sender": sender,
-                    "content": text_content,
-                    "images": images_html,
-                    "id": message_id
-                })
-                
+
+                chat_content.append(
+                    {
+                        "sender": sender,
+                        "content": text_content,
+                        "images": images_html,
+                        "id": message_id,
+                    }
+                )
+
                 if DEBUG:
                     print(f"Added to chat_content - Text: {text_content[:50]}...")
                     print(f"Has images: {'Yes' if images_html else 'No'}")
-                    
+
             except Exception as e:
                 if DEBUG:
                     print(f"Error processing message {idx}: {str(e)}")
@@ -783,15 +841,22 @@ class ChatBox(QWidget):
             model = self.active_model or get_default_model()
             if DEBUG:
                 print(f"Starting provider request with model: {model}")
-            
+
             # Check if current model supports vision
             base_model = get_base_model_name(model)
-            is_vision_model = base_model in self.chat_instance.settings_interface.vision_capable_models
-            
+            is_vision_model = (
+                base_model
+                in self.chat_instance.settings_interface.vision_capable_models
+            )
+
             # If not a vision model, remove all image content from messages
             if not is_vision_model:
                 for message in messages:
-                    message['content'] = [item for item in message['content'] if item.get('type') != 'image']
+                    message["content"] = [
+                        item
+                        for item in message["content"]
+                        if item.get("type") != "image"
+                    ]
                 screenshots = []  # Clear images for non-vision models
 
             self.chat_instance.provider_request_thread = ProviderRequest(
@@ -811,11 +876,12 @@ class ChatBox(QWidget):
             # Update UI state
             self.is_receiving = True
             self.chat_instance.update_gradient_state()
-            load_svg_button_icon(self.chat_instance.send_btn, ".\\icons\\stop.svg")
+            load_svg_button_icon(self.chat_instance.send_btn, self.ICONS / "stop.svg")
             self.chat_instance.send_btn.setObjectName("stopButton")
 
         except Exception as e:
             print(f"Error in start_provider_request: {str(e)}")
             if DEBUG:
                 import traceback
+
                 traceback.print_exc()
